@@ -5,7 +5,7 @@ import { calculateAngle } from '@/lib/pose/pose-utils';
 import { POSE_LANDMARKS } from '@/lib/pose/landmarks';
 
 export interface PoseOverlayRef {
-  drawPose: (landmarks: NormalizedLandmark[], videoWidth: number, videoHeight: number) => void;
+  drawPose: (landmarks: NormalizedLandmark[], videoWidth: number, videoHeight: number, isMirrored: boolean) => void;
   clear: () => void;
 }
 
@@ -24,16 +24,27 @@ const IMPORTANT_JOINTS = new Set([
 
 export const PoseOverlay = forwardRef<PoseOverlayRef, {}>((props, ref) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const isMirroredRef = useRef<boolean>(true); // track latest mirror state for CSS class
 
   useImperativeHandle(ref, () => ({
-    drawPose: (landmarks, videoWidth, videoHeight) => {
+    drawPose: (landmarks, videoWidth, videoHeight, isMirrored) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
 
-      // Ensure intrinsic size matches the video exactly
+      // Ensure intrinsic size matches the video exactly for precise 1:1 mapping
       if (canvas.width !== videoWidth || canvas.height !== videoHeight) {
         canvas.width = videoWidth;
         canvas.height = videoHeight;
+      }
+      
+      // Update mirror styling
+      if (isMirroredRef.current !== isMirrored) {
+        isMirroredRef.current = isMirrored;
+        if (isMirrored) {
+          canvas.style.transform = 'scaleX(-1)';
+        } else {
+          canvas.style.transform = 'none';
+        }
       }
 
       const ctx = canvas.getContext('2d');
@@ -76,8 +87,7 @@ export const PoseOverlay = forwardRef<PoseOverlayRef, {}>((props, ref) => {
           ctx.beginPath();
           ctx.arc(x, y, isImportant ? baseLineWidth * 2.5 : baseLineWidth * 1.5, 0, 2 * Math.PI);
           
-          // Distinguish important joints visually
-          ctx.fillStyle = isImportant ? '#10b981' : 'rgba(255, 255, 255, 0.9)'; // Emerald for important
+          ctx.fillStyle = isImportant ? '#10b981' : 'rgba(255, 255, 255, 0.9)'; // Emerald
           ctx.fill();
           
           ctx.lineWidth = isImportant ? 2 : 1;
@@ -86,7 +96,7 @@ export const PoseOverlay = forwardRef<PoseOverlayRef, {}>((props, ref) => {
         }
       });
 
-      // Optional: Draw angles for elbows if visible
+      // Draw angles for elbows if visible
       const drawAngleText = (shoulderIdx: number, elbowIdx: number, wristIdx: number) => {
         const shoulder = landmarks[shoulderIdx];
         const elbow = landmarks[elbowIdx];
@@ -99,21 +109,20 @@ export const PoseOverlay = forwardRef<PoseOverlayRef, {}>((props, ref) => {
           (wrist.visibility || 0) > MIN_LANDMARK_VISIBILITY
         ) {
           const angle = Math.round(calculateAngle(shoulder, elbow, wrist));
-          const x = elbow.x * canvas.width + 15;
-          const y = elbow.y * canvas.height;
           
-          // Note: Since the canvas is mirrored with CSS scaleX(-1), 
-          // we need to un-mirror the text so it's readable, or just let it be mirrored.
-          // Let's un-mirror just the text locally:
           ctx.save();
           ctx.translate(elbow.x * canvas.width, elbow.y * canvas.height);
-          ctx.scale(-1, 1); // Flip text back
+          if (isMirrored) {
+            ctx.scale(-1, 1); // Flip text back if mirrored
+          }
           
-          ctx.font = 'bold 16px sans-serif';
+          // Make text size responsive to video scale
+          const fontSize = Math.max(16, Math.min(canvas.width, canvas.height) * 0.03);
+          ctx.font = `bold ${fontSize}px sans-serif`;
           ctx.fillStyle = '#ffffff';
           ctx.strokeStyle = '#000000';
-          ctx.lineWidth = 3;
-          // Offset after flipping:
+          ctx.lineWidth = Math.max(3, fontSize * 0.2);
+          
           ctx.strokeText(`${angle}°`, 15, 0);
           ctx.fillText(`${angle}°`, 15, 0);
           
@@ -133,11 +142,11 @@ export const PoseOverlay = forwardRef<PoseOverlayRef, {}>((props, ref) => {
     }
   }));
 
-  // Using the same classes as the video: w-full h-full object-cover transform -scale-x-100
+  // Initial transform class is -scale-x-100, we update dynamically via DOM
   return (
     <canvas 
       ref={canvasRef} 
-      className="absolute inset-0 w-full h-full object-cover pointer-events-none transform -scale-x-100 z-10"
+      className="absolute inset-0 w-full h-full object-cover pointer-events-none z-10 transform scale-x-[-1]"
     />
   );
 });

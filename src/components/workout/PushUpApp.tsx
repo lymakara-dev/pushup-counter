@@ -7,11 +7,16 @@ import { PushUpDetector, PushUpState } from '@/lib/workout/pushup-detector';
 import { PoseLandmarker } from '@mediapipe/tasks-vision';
 import { PoseOverlay, PoseOverlayRef } from '../pose/PoseOverlay';
 import { NormalizedLandmark } from '@/lib/pose/landmarks';
+import { validatePushUpPosition } from '@/lib/workout/position-validator';
+import { PositionGuide, PositionStatus } from './PositionGuide';
+
+export type AppState = "CAMERA_OFF" | "LOADING_MODEL" | "POSITIONING" | "READY" | "WORKOUT" | "PAUSED";
 
 export default function PushUpApp() {
-  const [isActive, setIsActive] = useState(false);
+  const [appState, setAppState] = useState<AppState>("CAMERA_OFF");
   const [isModelReady, setIsModelReady] = useState(false);
-  const [modelLoading, setModelLoading] = useState(false);
+  const [positionMessage, setPositionMessage] = useState<string>("Looking for your body...");
+  const [isMirrored, setIsMirrored] = useState<boolean>(true);
   
   // UI State that doesn't need to update every frame, just when count/state changes
   const [repCount, setRepCount] = useState(0);
@@ -25,30 +30,46 @@ export default function PushUpApp() {
   const lastVideoTimeRef = useRef<number>(-1);
   const landmarkerRef = useRef<PoseLandmarker | null>(null);
 
+  const appStateRef = useRef<AppState>("CAMERA_OFF");
+  const readyStartTimeRef = useRef<number>(0);
+  const invalidStartTimeRef = useRef<number>(0);
+  // Ref tracking mirror state to avoid closure staleness without re-adding deps to loop
+  const isMirroredRef = useRef<boolean>(true);
+
+  const syncAppState = (newState: AppState) => {
+    setAppState(newState);
+    appStateRef.current = newState;
+  };
+
   // Load Model
   useEffect(() => {
     async function loadModel() {
-      setModelLoading(true);
+      syncAppState("LOADING_MODEL");
       try {
         const landmarker = await getPoseLandmarker();
         landmarkerRef.current = landmarker;
         setIsModelReady(true);
+        if (appStateRef.current === "LOADING_MODEL") {
+          syncAppState("CAMERA_OFF");
+        }
       } catch (err) {
         console.error("Failed to load pose model", err);
-      } finally {
-        setModelLoading(false);
+        syncAppState("CAMERA_OFF");
       }
     }
     loadModel();
   }, []);
 
-  const handleVideoReady = useCallback((video: HTMLVideoElement) => {
+  const handleVideoReady = useCallback((video: HTMLVideoElement, mirrored: boolean) => {
     videoRef.current = video;
+    setIsMirrored(mirrored);
+    isMirroredRef.current = mirrored;
+    syncAppState("POSITIONING");
     startDetectionLoop();
   }, []);
 
   const handleCameraStop = useCallback(() => {
-    setIsActive(false);
+    syncAppState("CAMERA_OFF");
     stopDetectionLoop();
   }, []);
 
@@ -57,7 +78,6 @@ export default function PushUpApp() {
       cancelAnimationFrame(animationRef.current);
       animationRef.current = null;
     }
-    // Clear canvas
     overlayRef.current?.clear();
   };
 
@@ -76,32 +96,77 @@ export default function PushUpApp() {
         if (results && results.landmarks && results.landmarks.length > 0) {
           const landmarks = results.landmarks[0] as NormalizedLandmark[];
           
-          // Draw skeleton over video
-          overlayRef.current?.drawPose(landmarks, video.videoWidth, video.videoHeight);
+          overlayRef.current?.drawPose(landmarks, video.videoWidth, video.videoHeight, isMirroredRef.current);
 
-          // Run push-up detection
-          const result = detectorRef.current.update(landmarks, startTimeMs);
-          
-          // Only update React state if something changed to avoid re-rendering every frame
-          setRepCount(prev => {
-            if (prev !== result.count) return result.count;
-            return prev;
-          });
-          setPushupState(prev => {
-            if (prev !== result.state) return result.state;
-            return prev;
-          });
-          setFeedback(prev => {
-            if (prev !== result.feedback) return result.feedback;
-            return prev;
-          });
+          const position = validatePushUpPosition(landmarks);
+
+          if (appStateRef.current === "POSITIONING" || appStateRef.current === "READY") {
+             if (position.ready) {
+                if (readyStartTimeRef.current === 0) {
+                   readyStartTimeRef.current = startTimeMs;
+                   syncAppState("READY");
+                   setPositionMessage("Hold still...");
+                } else if (startTimeMs - readyStartTimeRef.current > 1000) {
+                   syncAppState("WORKOUT");
+                   setPositionMessage("");
+                   detectorRef.current.reset(); // ensure fresh start
+                } else {
+                   setPositionMessage("Perfect position. Hold still...");
+                }
+             } else {
+                readyStartTimeRef.current = 0;
+                syncAppState("POSITIONING");
+                setPositionMessage(position.message);
+             }
+          } else if (appStateRef.current === "WORKOUT") {
+             if (!position.ready) {
+                setPositionMessage(position.message);
+                if (invalidStartTimeRef.current === 0) {
+                   invalidStartTimeRef.current = startTimeMs;
+                } else if (startTimeMs - invalidStartTimeRef.current > 2000) {
+                   syncAppState("PAUSED");
+                   readyStartTimeRef.current = 0; // prepare for resuming
+                }
+             } else {
+                setPositionMessage("");
+                invalidStartTimeRef.current = 0;
+             }
+             
+             const result = detectorRef.current.update(landmarks, startTimeMs);
+             setRepCount(prev => (prev !== result.count ? result.count : prev));
+             setPushupState(prev => (prev !== result.state ? result.state : prev));
+             setFeedback(prev => (prev !== result.feedback ? result.feedback : prev));
+
+          } else if (appStateRef.current === "PAUSED") {
+             setPositionMessage(position.message);
+             if (position.ready) {
+                if (readyStartTimeRef.current === 0) {
+                   readyStartTimeRef.current = startTimeMs;
+                   setPositionMessage("Hold still to resume...");
+                } else if (startTimeMs - readyStartTimeRef.current > 1000) {
+                   syncAppState("WORKOUT");
+                   invalidStartTimeRef.current = 0;
+                   setPositionMessage("");
+                } else {
+                   setPositionMessage("Perfect position. Resuming...");
+                }
+             } else {
+                readyStartTimeRef.current = 0;
+             }
+          }
         } else {
           // Pose lost
           overlayRef.current?.clear();
+          setPositionMessage("Pose not detected");
+          readyStartTimeRef.current = 0;
+          if (appStateRef.current === "WORKOUT") {
+             if (invalidStartTimeRef.current === 0) invalidStartTimeRef.current = performance.now();
+             else if (performance.now() - invalidStartTimeRef.current > 2000) syncAppState("PAUSED");
+          }
         }
       }
       
-      if (isActive) {
+      if (appStateRef.current !== "CAMERA_OFF" && appStateRef.current !== "LOADING_MODEL") {
         animationRef.current = requestAnimationFrame(loop);
       }
     };
@@ -114,19 +179,34 @@ export default function PushUpApp() {
     setRepCount(0);
     setPushupState(PushUpState.UNKNOWN);
     setFeedback("Ready");
+    syncAppState("POSITIONING");
+    readyStartTimeRef.current = 0;
+    invalidStartTimeRef.current = 0;
   };
 
   const handleStart = () => {
-    setIsActive(true);
+    if (!isModelReady) return;
+    syncAppState("POSITIONING");
     handleReset();
   };
 
+  // Add scroll lock for body when workout is active
+  useEffect(() => {
+    if (appState !== "CAMERA_OFF" && appState !== "LOADING_MODEL") {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [appState]);
+
   return (
-    <div className="w-full max-w-3xl mx-auto flex flex-col items-center p-4">
-      
-      {!isActive ? (
-        <div className="flex flex-col items-center justify-center p-8 bg-zinc-900 rounded-2xl w-full text-center border border-zinc-800">
-          <h1 className="text-3xl md:text-5xl font-bold mb-4 tracking-tight text-white">Push-Up Counter</h1>
+    <div className="w-full flex justify-center bg-black min-h-[100dvh]">
+      {appState === "CAMERA_OFF" || appState === "LOADING_MODEL" ? (
+        <div className="w-full max-w-xl mx-auto flex flex-col items-center justify-center p-6 text-center min-h-[80dvh]">
+          <h1 className="text-4xl md:text-5xl font-bold mb-4 tracking-tight text-white">Push-Up Counter</h1>
           <p className="text-zinc-400 mb-8 max-w-md text-lg">
             Count your push-ups using real-time body tracking.
           </p>
@@ -137,7 +217,7 @@ export default function PushUpApp() {
             </p>
           </div>
           
-          {modelLoading ? (
+          {appState === "LOADING_MODEL" ? (
             <div className="px-8 py-4 bg-zinc-800 text-zinc-400 font-semibold rounded-full animate-pulse">
               Loading pose detection...
             </div>
@@ -148,60 +228,79 @@ export default function PushUpApp() {
           ) : (
             <button 
               onClick={handleStart}
-              className="px-8 py-4 bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-full text-lg transition-transform hover:scale-105 active:scale-95"
+              className="px-8 py-4 min-h-[56px] min-w-[200px] bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-full text-lg transition-transform hover:scale-105 active:scale-95 touch-manipulation"
             >
               Start Camera
             </button>
           )}
         </div>
       ) : (
-        <div className="w-full flex flex-col gap-4">
+        <div className="fixed inset-0 sm:relative sm:w-full sm:max-w-md lg:max-w-4xl sm:h-[90dvh] sm:min-h-[600px] sm:my-8 bg-black sm:rounded-[2rem] overflow-hidden flex flex-col shadow-2xl">
           
-          {/* Top Stats Bar */}
-          <div className="flex flex-col md:flex-row items-center justify-between bg-zinc-900 p-6 rounded-2xl border border-zinc-800 gap-4">
-            <div className="flex flex-col items-center md:items-start">
-              <span className="text-zinc-500 font-medium uppercase tracking-wider text-sm">Push-ups</span>
-              <span className="text-6xl font-bold text-white tabular-nums leading-none">{repCount}</span>
-            </div>
-            
-            <div className="flex flex-col items-center md:items-end">
-              <span className="text-zinc-500 font-medium uppercase tracking-wider text-sm mb-1">Status</span>
-              <span className={`px-4 py-2 rounded-full font-bold text-lg ${
-                pushupState === PushUpState.DOWN ? 'bg-amber-500/20 text-amber-400' :
-                pushupState === PushUpState.READY ? 'bg-emerald-500/20 text-emerald-400' :
-                'bg-zinc-800 text-zinc-300'
-              }`}>
-                {feedback}
-              </span>
-            </div>
+          {/* Header */}
+          <div 
+            className="flex-none p-4 flex justify-between items-center z-20 bg-gradient-to-b from-black/80 to-transparent"
+            style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}
+          >
+            <h1 className="text-xl font-bold text-white tracking-tight drop-shadow-md">Push-Up Counter</h1>
           </div>
-
-          {/* Camera Container */}
-          <div className="relative w-full aspect-video md:aspect-[4/3] bg-black rounded-2xl overflow-hidden border border-zinc-800">
+          
+          {/* Camera Area - takes remaining space */}
+          <div className="flex-1 relative w-full overflow-hidden flex flex-col justify-end">
             <CameraView 
-              isActive={isActive} 
+              isActive={true} 
               onVideoReady={handleVideoReady} 
               onCameraStop={handleCameraStop} 
+              isMirrored={isMirrored}
             />
-            {/* The PoseOverlay automatically manages its own canvas drawing without React re-renders */}
-            <PoseOverlay ref={overlayRef} />
             
-            <div className="absolute bottom-4 left-0 right-0 flex justify-center gap-4 z-20 px-4">
-              <button 
-                onClick={handleReset}
-                className="px-6 py-2 bg-zinc-800/80 hover:bg-zinc-700 backdrop-blur-md text-white font-medium rounded-full shadow-lg border border-zinc-600 transition-colors"
-              >
-                Reset
-              </button>
-              <button 
-                onClick={handleCameraStop}
-                className="px-6 py-2 bg-red-500/90 hover:bg-red-500 backdrop-blur-md text-white font-bold rounded-full shadow-lg transition-colors"
-              >
-                Stop Camera
-              </button>
+            <PoseOverlay ref={overlayRef} />
+            <PositionGuide appState={appState} positionMessage={positionMessage} />
+            <PositionStatus appState={appState} positionMessage={positionMessage} />
+            
+            {/* Overlaid UI inside Camera Area */}
+            <div className="absolute inset-x-0 bottom-0 p-6 flex flex-col items-center justify-end z-30 bg-gradient-to-t from-black via-black/60 to-transparent pointer-events-none">
+              
+              {/* Rep Counter */}
+              <div className="flex flex-col items-center mb-6">
+                 <span className={`text-[6rem] md:text-[8rem] leading-none font-black tabular-nums tracking-tighter drop-shadow-2xl ${appState === 'WORKOUT' ? 'text-white' : 'text-white/50'}`}>
+                   {repCount}
+                 </span>
+                 <span className="text-sm md:text-base font-bold tracking-widest uppercase text-white/80 drop-shadow-md mt-2">Push-Ups</span>
+              </div>
+
+              {/* Status Indicator */}
+              <div className={`px-8 py-3 rounded-full font-bold text-xl md:text-2xl backdrop-blur-xl shadow-2xl border ${
+                  appState !== 'WORKOUT' ? 'bg-zinc-800/80 text-zinc-300 border-zinc-600' :
+                  pushupState === PushUpState.DOWN ? 'bg-amber-500/90 text-black border-amber-400' :
+                  pushupState === PushUpState.READY ? 'bg-emerald-500/90 text-black border-emerald-400' :
+                  'bg-zinc-800/80 text-zinc-300 border-zinc-600'
+                }`}>
+                 {appState === "WORKOUT" ? feedback : appState}
+              </div>
+
             </div>
           </div>
           
+          {/* Bottom Controls */}
+          <div 
+            className="flex-none p-6 pt-4 bg-black flex justify-center gap-4 z-20"
+            style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
+          >
+             <button 
+               onClick={handleReset} 
+               className="w-16 h-16 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 text-white rounded-full transition-colors active:scale-95 touch-manipulation"
+               aria-label="Reset Workout"
+             >
+               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+             </button>
+             <button 
+               onClick={handleCameraStop} 
+               className="flex-1 max-w-[250px] h-16 bg-red-600 hover:bg-red-500 text-white font-bold rounded-full transition-colors active:scale-95 touch-manipulation text-xl"
+             >
+               Stop Camera
+             </button>
+          </div>
         </div>
       )}
     </div>
