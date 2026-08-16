@@ -3,7 +3,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import CameraView from '../camera/CameraView';
 import { getPoseLandmarker } from '@/lib/pose/pose-landmarker';
-import { PushUpDetector, PushUpState } from '@/lib/workout/pushup-detector';
+import { PushUpDetector, PushUpState, CameraViewMode } from '@/lib/workout/pushup-detector';
 import { PoseLandmarker } from '@mediapipe/tasks-vision';
 import { PoseOverlay, PoseOverlayRef } from '../pose/PoseOverlay';
 import { NormalizedLandmark } from '@/lib/pose/landmarks';
@@ -18,7 +18,8 @@ export default function PushUpApp() {
   const [isModelReady, setIsModelReady] = useState(false);
   const [positionMessage, setPositionMessage] = useState<string>("Looking for your body...");
   const [isMirrored, setIsMirrored] = useState<boolean>(true);
-  const [voiceEnabled, setVoiceEnabled] = useState<boolean>(true); // will sync on mount
+  const [voiceEnabled, setVoiceEnabled] = useState<boolean>(true);
+  const [cameraMode, setCameraMode] = useState<CameraViewMode>("side");
   
   // UI State that doesn't need to update every frame, just when count/state changes
   const [repCount, setRepCount] = useState(0);
@@ -35,11 +36,11 @@ export default function PushUpApp() {
   const appStateRef = useRef<AppState>("CAMERA_OFF");
   const readyStartTimeRef = useRef<number>(0);
   const invalidStartTimeRef = useRef<number>(0);
-  // Ref tracking mirror state to avoid closure staleness without re-adding deps to loop
   const isMirroredRef = useRef<boolean>(true);
   const prevPushUpStateRef = useRef<PushUpState>(PushUpState.UNKNOWN);
   const prevRepCountRef = useRef<number>(0);
   const poseLostTimeRef = useRef<number>(0);
+  const cameraModeRef = useRef<CameraViewMode>("side");
 
   const syncAppState = (newState: AppState) => {
     setAppState(newState);
@@ -54,6 +55,16 @@ export default function PushUpApp() {
     const newState = !voiceEnabled;
     setVoiceEnabled(newState);
     voiceGuide.setEnabled(newState);
+  };
+
+  const handleModeSwitch = (mode: CameraViewMode) => {
+    setCameraMode(mode);
+    cameraModeRef.current = mode;
+    detectorRef.current.setMode(mode);
+    syncAppState("POSITIONING");
+    prevPushUpStateRef.current = PushUpState.UNKNOWN;
+    setPushupState(PushUpState.UNKNOWN);
+    voiceGuide.speak(mode === "side" ? "Side view selected" : "Front view selected", VoicePriority.HIGH, true);
   };
 
   // Load Model
@@ -110,12 +121,12 @@ export default function PushUpApp() {
         const results = landmarkerRef.current?.detectForVideo(video, startTimeMs);
 
         if (results && results.landmarks && results.landmarks.length > 0) {
-          poseLostTimeRef.current = 0; // reset pose lost tracker
+          poseLostTimeRef.current = 0;
           const landmarks = results.landmarks[0] as NormalizedLandmark[];
           
           overlayRef.current?.drawPose(landmarks, video.videoWidth, video.videoHeight, isMirroredRef.current);
 
-          const position = validatePushUpPosition(landmarks);
+          const position = validatePushUpPosition(landmarks, cameraModeRef.current);
 
           if (appStateRef.current === "POSITIONING" || appStateRef.current === "READY") {
              if (position.ready) {
@@ -129,9 +140,10 @@ export default function PushUpApp() {
                    syncAppState("WORKOUT");
                    voiceGuide.speak(VOICE_MESSAGES.GO.text, VOICE_MESSAGES.GO.priority, true);
                    setPositionMessage("");
-                   detectorRef.current.reset(); // ensure fresh start
+                   // Reset state machine without clearing counts when entering workout properly
+                   // detectorRef.current.reset() would clear count.
+                   // The state machine initializes fine since it starts at UNKNOWN.
                    prevPushUpStateRef.current = PushUpState.UNKNOWN;
-                   prevRepCountRef.current = 0;
                 } else {
                    setPositionMessage("Perfect position. Hold still...");
                 }
@@ -139,15 +151,17 @@ export default function PushUpApp() {
                 readyStartTimeRef.current = 0;
                 syncAppState("POSITIONING");
                 setPositionMessage(position.message);
-                if (position.issue && VOICE_MESSAGES[position.issue]) {
-                   voiceGuide.speak(VOICE_MESSAGES[position.issue].text, VOICE_MESSAGES[position.issue].priority);
+                if (position.issue && VOICE_MESSAGES[position.issue as keyof typeof VOICE_MESSAGES]) {
+                   const msg = VOICE_MESSAGES[position.issue as keyof typeof VOICE_MESSAGES];
+                   voiceGuide.speak(msg.text, msg.priority);
                 }
              }
           } else if (appStateRef.current === "WORKOUT") {
              if (!position.ready) {
                 setPositionMessage(position.message);
-                if (position.issue && VOICE_MESSAGES[position.issue]) {
-                   voiceGuide.speak(VOICE_MESSAGES[position.issue].text, VOICE_MESSAGES[position.issue].priority);
+                if (position.issue && VOICE_MESSAGES[position.issue as keyof typeof VOICE_MESSAGES]) {
+                   const msg = VOICE_MESSAGES[position.issue as keyof typeof VOICE_MESSAGES];
+                   voiceGuide.speak(msg.text, msg.priority);
                 }
                 
                 if (invalidStartTimeRef.current === 0) {
@@ -197,8 +211,9 @@ export default function PushUpApp() {
                 }
              } else {
                 readyStartTimeRef.current = 0;
-                if (position.issue && VOICE_MESSAGES[position.issue]) {
-                   voiceGuide.speak(VOICE_MESSAGES[position.issue].text, VOICE_MESSAGES[position.issue].priority);
+                if (position.issue && VOICE_MESSAGES[position.issue as keyof typeof VOICE_MESSAGES]) {
+                   const msg = VOICE_MESSAGES[position.issue as keyof typeof VOICE_MESSAGES];
+                   voiceGuide.speak(msg.text, msg.priority);
                 }
              }
           }
@@ -245,10 +260,9 @@ export default function PushUpApp() {
 
   const handleStart = () => {
     if (!isModelReady) return;
-    // Wake up speech synthesis on user interaction
     voiceGuide.speak("", VoicePriority.LOW, true);
     syncAppState("POSITIONING");
-    handleReset();
+    // Don't fully reset counts if they just paused/stopped camera
   };
 
   // Add scroll lock for body when workout is active
@@ -313,13 +327,15 @@ export default function PushUpApp() {
             style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}
           >
             <h1 className="text-xl font-bold text-white tracking-tight drop-shadow-md">Push-Up Counter</h1>
-            <button
-              onClick={toggleVoice}
-              className="w-12 h-12 flex items-center justify-center text-white/80 hover:text-white bg-black/30 rounded-full backdrop-blur-sm transition-colors"
-              aria-label={voiceEnabled ? "Disable Voice" : "Enable Voice"}
-            >
-              {voiceEnabled ? "🔊" : "🔇"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={toggleVoice}
+                className="w-10 h-10 flex items-center justify-center text-white/80 hover:text-white bg-black/30 rounded-full backdrop-blur-sm transition-colors"
+                aria-label={voiceEnabled ? "Disable Voice" : "Enable Voice"}
+              >
+                {voiceEnabled ? "🔊" : "🔇"}
+              </button>
+            </div>
           </div>
           
           {/* Camera Area - takes remaining space */}
@@ -361,22 +377,40 @@ export default function PushUpApp() {
           
           {/* Bottom Controls */}
           <div 
-            className="flex-none p-6 pt-4 bg-black flex justify-center gap-4 z-20"
+            className="flex-none p-6 pt-4 bg-black flex flex-col gap-4 z-20"
             style={{ paddingBottom: 'max(1.5rem, env(safe-area-inset-bottom))' }}
           >
-             <button 
-               onClick={handleReset} 
-               className="w-16 h-16 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 text-white rounded-full transition-colors active:scale-95 touch-manipulation"
-               aria-label="Reset Workout"
-             >
-               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
-             </button>
-             <button 
-               onClick={handleCameraStop} 
-               className="flex-1 max-w-[250px] h-16 bg-red-600 hover:bg-red-500 text-white font-bold rounded-full transition-colors active:scale-95 touch-manipulation text-xl"
-             >
-               Stop Camera
-             </button>
+            {/* View Mode Switcher */}
+            <div className="flex p-1 bg-zinc-900 rounded-full border border-zinc-800 w-full max-w-[300px] mx-auto mb-2">
+              <button
+                onClick={() => handleModeSwitch("side")}
+                className={`flex-1 py-2 text-sm font-bold rounded-full transition-colors ${cameraMode === "side" ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}`}
+              >
+                Side View
+              </button>
+              <button
+                onClick={() => handleModeSwitch("front")}
+                className={`flex-1 py-2 text-sm font-bold rounded-full transition-colors ${cameraMode === "front" ? "bg-zinc-700 text-white" : "text-zinc-400 hover:text-white"}`}
+              >
+                Front View
+              </button>
+            </div>
+
+            <div className="flex justify-center gap-4">
+              <button 
+                onClick={handleReset} 
+                className="w-16 h-16 flex items-center justify-center bg-zinc-800 hover:bg-zinc-700 text-white rounded-full transition-colors active:scale-95 touch-manipulation"
+                aria-label="Reset Workout"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+              </button>
+              <button 
+                onClick={handleCameraStop} 
+                className="flex-1 max-w-[250px] h-16 bg-red-600 hover:bg-red-500 text-white font-bold rounded-full transition-colors active:scale-95 touch-manipulation text-xl"
+              >
+                Stop Camera
+              </button>
+            </div>
           </div>
         </div>
       )}

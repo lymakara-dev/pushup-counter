@@ -1,4 +1,5 @@
 import { NormalizedLandmark, POSE_LANDMARKS } from '../pose/landmarks';
+import { CameraViewMode } from './pushup-detector';
 
 export type PositionIssue =
   | "NO_PERSON"
@@ -10,6 +11,7 @@ export type PositionIssue =
   | "MOVE_UP"
   | "MOVE_DOWN"
   | "TURN_SIDEWAYS"
+  | "FACE_CAMERA"
   | "GET_IN_PUSHUP_POSITION"
   | "LOW_CONFIDENCE";
 
@@ -26,19 +28,16 @@ const POSITION_CONFIG = {
   margin: 0.02,
 };
 
-export function validatePushUpPosition(landmarks: NormalizedLandmark[] | null | undefined): PositionResult {
+export function validatePushUpPosition(landmarks: NormalizedLandmark[] | null | undefined, mode: CameraViewMode = "side"): PositionResult {
   if (!landmarks || landmarks.length === 0) {
     return { ready: false, issue: "NO_PERSON", message: "Looking for your body..." };
   }
 
   const requiredJoints = [
-    POSE_LANDMARKS.NOSE,
     POSE_LANDMARKS.LEFT_SHOULDER,
     POSE_LANDMARKS.RIGHT_SHOULDER,
-    POSE_LANDMARKS.LEFT_HIP,
-    POSE_LANDMARKS.RIGHT_HIP,
-    POSE_LANDMARKS.LEFT_ANKLE,
-    POSE_LANDMARKS.RIGHT_ANKLE,
+    POSE_LANDMARKS.LEFT_ELBOW,
+    POSE_LANDMARKS.RIGHT_ELBOW,
     POSE_LANDMARKS.LEFT_WRIST,
     POSE_LANDMARKS.RIGHT_WRIST
   ];
@@ -51,7 +50,7 @@ export function validatePushUpPosition(landmarks: NormalizedLandmark[] | null | 
   }
 
   if (visibleCount < requiredJoints.length * 0.5) {
-    return { ready: false, issue: "BODY_NOT_VISIBLE", message: "Show your whole body" };
+    return { ready: false, issue: "BODY_NOT_VISIBLE", message: "Show your upper body" };
   }
 
   let minX = 1, maxX = 0, minY = 1, maxY = 0;
@@ -88,22 +87,36 @@ export function validatePushUpPosition(landmarks: NormalizedLandmark[] | null | 
     return { ready: false, issue: "TOO_CLOSE", message: "Move farther away" };
   }
 
-  // Check orientation (Shoulders vs Hips in Z or X)
-  // For a pushup, the body width (shoulder to ankle) should be larger than body height
-  if (height > width * 1.2) {
-    return { ready: false, issue: "GET_IN_PUSHUP_POSITION", message: "Get into push-up position" };
-  }
-
-  // Turn sideways: distance between left and right shoulders should be small compared to body size
-  const leftShoulder = landmarks[POSE_LANDMARKS.LEFT_SHOULDER];
-  const rightShoulder = landmarks[POSE_LANDMARKS.RIGHT_SHOULDER];
-  
-  if (leftShoulder && rightShoulder && 
-      (leftShoulder.visibility || 0) > POSITION_CONFIG.minVisibility && 
-      (rightShoulder.visibility || 0) > POSITION_CONFIG.minVisibility) {
-    const shoulderWidth = Math.abs(leftShoulder.x - rightShoulder.x);
-    if (shoulderWidth > width * 0.35) {
-      return { ready: false, issue: "TURN_SIDEWAYS", message: "Turn sideways" };
+  // For side view: check if height > width is invalid (they must be horizontal)
+  if (mode === "side") {
+    if (height > width * 1.5) {
+      return { ready: false, issue: "GET_IN_PUSHUP_POSITION", message: "Get into push-up position" };
+    }
+    
+    // Turn sideways: distance between left and right shoulders should be small compared to body size
+    const leftShoulder = landmarks[POSE_LANDMARKS.LEFT_SHOULDER];
+    const rightShoulder = landmarks[POSE_LANDMARKS.RIGHT_SHOULDER];
+    
+    if (leftShoulder && rightShoulder && 
+        (leftShoulder.visibility || 0) > POSITION_CONFIG.minVisibility && 
+        (rightShoulder.visibility || 0) > POSITION_CONFIG.minVisibility) {
+      const shoulderWidth = Math.abs(leftShoulder.x - rightShoulder.x);
+      if (shoulderWidth > width * 0.4) {
+        return { ready: false, issue: "TURN_SIDEWAYS", message: "Turn sideways" };
+      }
+    }
+  } else if (mode === "front") {
+    // For front view: shoulders should be wide apart relative to the image
+    const leftShoulder = landmarks[POSE_LANDMARKS.LEFT_SHOULDER];
+    const rightShoulder = landmarks[POSE_LANDMARKS.RIGHT_SHOULDER];
+    
+    if (leftShoulder && rightShoulder && 
+        (leftShoulder.visibility || 0) > POSITION_CONFIG.minVisibility && 
+        (rightShoulder.visibility || 0) > POSITION_CONFIG.minVisibility) {
+      const shoulderWidth = Math.abs(leftShoulder.x - rightShoulder.x);
+      if (shoulderWidth < width * 0.2) {
+         return { ready: false, issue: "FACE_CAMERA", message: "Face the camera directly" };
+      }
     }
   }
 
