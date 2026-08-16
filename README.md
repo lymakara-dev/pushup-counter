@@ -1,47 +1,43 @@
-# OpenNext Starter
+# Push-Up Counter
 
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Features
+- Real-time body tracking via webcam using MediaPipe
+- Push-up rep counting using state machine
+- Clean, minimal, high-contrast mobile responsive UI
+- Privacy-focused: All video processing runs locally in your browser, and no video frames are uploaded anywhere.
 
-## Getting Started
+## Requirements
+- Node.js 18+
+- Modern browser with camera support (Chrome, Safari, Firefox, Edge)
 
-Read the documentation at https://opennext.js.org/cloudflare.
+## Installation
+```bash
+npm install
+```
 
-## Develop
+## Testing
+Run unit tests for the core logic:
+```bash
+npx vitest run
+```
 
-Run the Next.js development server:
-
+## Development
 ```bash
 npm run dev
-# or similar package manager command
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-## Preview
-
-Preview the application locally on the Cloudflare runtime:
-
+## Cloudflare Preview
 ```bash
 npm run preview
-# or similar package manager command
 ```
 
-## Deploy
-
-Deploy the application to Cloudflare:
-
+## Deployment
 ```bash
 npm run deploy
-# or similar package manager command
 ```
 
-## Learn More
+## Architecture
+Camera → MediaPipe → Landmarks → Pose Analysis → Push-up State Machine → Counter
 
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Privacy
+Your camera video is processed locally on your device. Video is not uploaded. The application only temporarily processes webcam streams for pose estimation directly within your browser.
