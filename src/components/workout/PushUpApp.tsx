@@ -9,6 +9,7 @@ import { PoseOverlay, PoseOverlayRef } from '../pose/PoseOverlay';
 import { NormalizedLandmark } from '@/lib/pose/landmarks';
 import { validatePushUpPosition } from '@/lib/workout/position-validator';
 import { PositionGuide, PositionStatus } from './PositionGuide';
+import { voiceGuide, VOICE_MESSAGES, VoicePriority } from '@/lib/voice/voice-guide';
 
 export type AppState = "CAMERA_OFF" | "LOADING_MODEL" | "POSITIONING" | "READY" | "WORKOUT" | "PAUSED";
 
@@ -17,6 +18,7 @@ export default function PushUpApp() {
   const [isModelReady, setIsModelReady] = useState(false);
   const [positionMessage, setPositionMessage] = useState<string>("Looking for your body...");
   const [isMirrored, setIsMirrored] = useState<boolean>(true);
+  const [voiceEnabled, setVoiceEnabled] = useState<boolean>(true); // will sync on mount
   
   // UI State that doesn't need to update every frame, just when count/state changes
   const [repCount, setRepCount] = useState(0);
@@ -35,10 +37,23 @@ export default function PushUpApp() {
   const invalidStartTimeRef = useRef<number>(0);
   // Ref tracking mirror state to avoid closure staleness without re-adding deps to loop
   const isMirroredRef = useRef<boolean>(true);
+  const prevPushUpStateRef = useRef<PushUpState>(PushUpState.UNKNOWN);
+  const prevRepCountRef = useRef<number>(0);
+  const poseLostTimeRef = useRef<number>(0);
 
   const syncAppState = (newState: AppState) => {
     setAppState(newState);
     appStateRef.current = newState;
+  };
+
+  useEffect(() => {
+    setVoiceEnabled(voiceGuide.isEnabled());
+  }, []);
+
+  const toggleVoice = () => {
+    const newState = !voiceEnabled;
+    setVoiceEnabled(newState);
+    voiceGuide.setEnabled(newState);
   };
 
   // Load Model
@@ -70,6 +85,7 @@ export default function PushUpApp() {
 
   const handleCameraStop = useCallback(() => {
     syncAppState("CAMERA_OFF");
+    voiceGuide.cancel();
     stopDetectionLoop();
   }, []);
 
@@ -94,6 +110,7 @@ export default function PushUpApp() {
         const results = landmarkerRef.current?.detectForVideo(video, startTimeMs);
 
         if (results && results.landmarks && results.landmarks.length > 0) {
+          poseLostTimeRef.current = 0; // reset pose lost tracker
           const landmarks = results.landmarks[0] as NormalizedLandmark[];
           
           overlayRef.current?.drawPose(landmarks, video.videoWidth, video.videoHeight, isMirroredRef.current);
@@ -105,11 +122,16 @@ export default function PushUpApp() {
                 if (readyStartTimeRef.current === 0) {
                    readyStartTimeRef.current = startTimeMs;
                    syncAppState("READY");
+                   voiceGuide.speak(VOICE_MESSAGES.PERFECT_POSITION.text, VOICE_MESSAGES.PERFECT_POSITION.priority);
+                   voiceGuide.speak(VOICE_MESSAGES.READY.text, VOICE_MESSAGES.READY.priority);
                    setPositionMessage("Hold still...");
                 } else if (startTimeMs - readyStartTimeRef.current > 1000) {
                    syncAppState("WORKOUT");
+                   voiceGuide.speak(VOICE_MESSAGES.GO.text, VOICE_MESSAGES.GO.priority, true);
                    setPositionMessage("");
                    detectorRef.current.reset(); // ensure fresh start
+                   prevPushUpStateRef.current = PushUpState.UNKNOWN;
+                   prevRepCountRef.current = 0;
                 } else {
                    setPositionMessage("Perfect position. Hold still...");
                 }
@@ -117,10 +139,17 @@ export default function PushUpApp() {
                 readyStartTimeRef.current = 0;
                 syncAppState("POSITIONING");
                 setPositionMessage(position.message);
+                if (position.issue && VOICE_MESSAGES[position.issue]) {
+                   voiceGuide.speak(VOICE_MESSAGES[position.issue].text, VOICE_MESSAGES[position.issue].priority);
+                }
              }
           } else if (appStateRef.current === "WORKOUT") {
              if (!position.ready) {
                 setPositionMessage(position.message);
+                if (position.issue && VOICE_MESSAGES[position.issue]) {
+                   voiceGuide.speak(VOICE_MESSAGES[position.issue].text, VOICE_MESSAGES[position.issue].priority);
+                }
+                
                 if (invalidStartTimeRef.current === 0) {
                    invalidStartTimeRef.current = startTimeMs;
                 } else if (startTimeMs - invalidStartTimeRef.current > 2000) {
@@ -133,8 +162,23 @@ export default function PushUpApp() {
              }
              
              const result = detectorRef.current.update(landmarks, startTimeMs);
-             setRepCount(prev => (prev !== result.count ? result.count : prev));
-             setPushupState(prev => (prev !== result.state ? result.state : prev));
+             
+             if (prevPushUpStateRef.current !== result.state) {
+               if (result.state === PushUpState.DOWN) {
+                 voiceGuide.speak(VOICE_MESSAGES.DOWN.text, VOICE_MESSAGES.DOWN.priority, true);
+               } else if (result.state === PushUpState.READY && prevPushUpStateRef.current === PushUpState.DOWN) {
+                 voiceGuide.speak(VOICE_MESSAGES.UP.text, VOICE_MESSAGES.UP.priority, true);
+               }
+               prevPushUpStateRef.current = result.state;
+               setPushupState(result.state);
+             }
+
+             if (prevRepCountRef.current !== result.count) {
+               voiceGuide.speakRep(result.count);
+               prevRepCountRef.current = result.count;
+               setRepCount(result.count);
+             }
+             
              setFeedback(prev => (prev !== result.feedback ? result.feedback : prev));
 
           } else if (appStateRef.current === "PAUSED") {
@@ -147,11 +191,15 @@ export default function PushUpApp() {
                    syncAppState("WORKOUT");
                    invalidStartTimeRef.current = 0;
                    setPositionMessage("");
+                   voiceGuide.speak(VOICE_MESSAGES.GO.text, VOICE_MESSAGES.GO.priority, true);
                 } else {
                    setPositionMessage("Perfect position. Resuming...");
                 }
              } else {
                 readyStartTimeRef.current = 0;
+                if (position.issue && VOICE_MESSAGES[position.issue]) {
+                   voiceGuide.speak(VOICE_MESSAGES[position.issue].text, VOICE_MESSAGES[position.issue].priority);
+                }
              }
           }
         } else {
@@ -159,9 +207,16 @@ export default function PushUpApp() {
           overlayRef.current?.clear();
           setPositionMessage("Pose not detected");
           readyStartTimeRef.current = 0;
+          
+          if (poseLostTimeRef.current === 0) {
+             poseLostTimeRef.current = startTimeMs;
+          } else if (startTimeMs - poseLostTimeRef.current > 1000) {
+             voiceGuide.speak(VOICE_MESSAGES.POSE_LOST.text, VOICE_MESSAGES.POSE_LOST.priority);
+          }
+          
           if (appStateRef.current === "WORKOUT") {
-             if (invalidStartTimeRef.current === 0) invalidStartTimeRef.current = performance.now();
-             else if (performance.now() - invalidStartTimeRef.current > 2000) syncAppState("PAUSED");
+             if (invalidStartTimeRef.current === 0) invalidStartTimeRef.current = startTimeMs;
+             else if (startTimeMs - invalidStartTimeRef.current > 2000) syncAppState("PAUSED");
           }
         }
       }
@@ -182,10 +237,16 @@ export default function PushUpApp() {
     syncAppState("POSITIONING");
     readyStartTimeRef.current = 0;
     invalidStartTimeRef.current = 0;
+    prevPushUpStateRef.current = PushUpState.UNKNOWN;
+    prevRepCountRef.current = 0;
+    voiceGuide.cancel();
+    voiceGuide.speak(VOICE_MESSAGES.RESET.text, VOICE_MESSAGES.RESET.priority, true);
   };
 
   const handleStart = () => {
     if (!isModelReady) return;
+    // Wake up speech synthesis on user interaction
+    voiceGuide.speak("", VoicePriority.LOW, true);
     syncAppState("POSITIONING");
     handleReset();
   };
@@ -226,12 +287,21 @@ export default function PushUpApp() {
               Failed to load pose model
             </div>
           ) : (
-            <button 
-              onClick={handleStart}
-              className="px-8 py-4 min-h-[56px] min-w-[200px] bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-full text-lg transition-transform hover:scale-105 active:scale-95 touch-manipulation"
-            >
-              Start Camera
-            </button>
+            <div className="flex flex-col items-center gap-6">
+              <button 
+                onClick={handleStart}
+                className="px-8 py-4 min-h-[56px] min-w-[200px] bg-emerald-500 hover:bg-emerald-400 text-black font-bold rounded-full text-lg transition-transform hover:scale-105 active:scale-95 touch-manipulation"
+              >
+                Start Camera
+              </button>
+              
+              <button 
+                onClick={toggleVoice}
+                className="flex items-center gap-2 px-6 py-3 rounded-full bg-zinc-800 hover:bg-zinc-700 text-white transition-colors"
+              >
+                {voiceEnabled ? "🔊 Voice On" : "🔇 Voice Off"}
+              </button>
+            </div>
           )}
         </div>
       ) : (
@@ -243,6 +313,13 @@ export default function PushUpApp() {
             style={{ paddingTop: 'max(1rem, env(safe-area-inset-top))' }}
           >
             <h1 className="text-xl font-bold text-white tracking-tight drop-shadow-md">Push-Up Counter</h1>
+            <button
+              onClick={toggleVoice}
+              className="w-12 h-12 flex items-center justify-center text-white/80 hover:text-white bg-black/30 rounded-full backdrop-blur-sm transition-colors"
+              aria-label={voiceEnabled ? "Disable Voice" : "Enable Voice"}
+            >
+              {voiceEnabled ? "🔊" : "🔇"}
+            </button>
           </div>
           
           {/* Camera Area - takes remaining space */}
