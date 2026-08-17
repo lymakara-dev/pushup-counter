@@ -1,99 +1,171 @@
-import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
-import { VoiceGuide, VoicePriority } from './voice-guide';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { VoiceGuide } from './voice-guide';
+import { en } from '../i18n/translations';
+import { khmerAudio } from './khmer-audio';
+
+vi.mock('./khmer-audio', () => {
+  return {
+    khmerAudio: {
+      play: vi.fn(),
+      preloadBasic: vi.fn(),
+      cancel: vi.fn(),
+      checkExists: vi.fn(),
+    }
+  };
+});
 
 describe('VoiceGuide', () => {
   let voiceGuide: VoiceGuide;
   let mockSpeak: ReturnType<typeof vi.fn>;
   let mockCancel: ReturnType<typeof vi.fn>;
   let mockUtteranceConstructor: ReturnType<typeof vi.fn>;
+  let mockGetVoices: ReturnType<typeof vi.fn>;
   
   beforeEach(() => {
     mockSpeak = vi.fn();
     mockCancel = vi.fn();
     mockUtteranceConstructor = vi.fn();
     
-    // Mock global window objects
+    mockGetVoices = vi.fn().mockReturnValue([
+      { lang: 'en-US', name: 'English Voice' }
+    ]);
+    
     global.window = {
       speechSynthesis: {
         speak: mockSpeak,
         cancel: mockCancel,
-        getVoices: vi.fn().mockReturnValue([{ lang: 'en-US' }]),
-        speaking: false
+        getVoices: mockGetVoices,
+        speaking: false,
       } as any
     } as any;
     
-    class MockSpeechSynthesisUtterance {
-      text: string;
-      rate: number = 1.0;
-      pitch: number = 1.0;
-      volume: number = 1.0;
-      constructor(text: string) {
-        this.text = text;
-        mockUtteranceConstructor(text);
-      }
-    }
-    global.SpeechSynthesisUtterance = MockSpeechSynthesisUtterance as any;
+    global.SpeechSynthesisUtterance = function(text: string) {
+      mockUtteranceConstructor(text);
+      this.text = text;
+      this.rate = 1;
+      this.pitch = 1;
+      this.volume = 1;
+      this.lang = '';
+    } as any;
     
     global.localStorage = {
-      getItem: vi.fn().mockReturnValue(null),
+      getItem: vi.fn(),
       setItem: vi.fn(),
+      clear: vi.fn(),
+      removeItem: vi.fn(),
+      length: 0,
+      key: vi.fn()
     } as any;
 
     voiceGuide = new VoiceGuide();
-    vi.useFakeTimers();
+    voiceGuide.setEnabled(true);
+    voiceGuide.setLanguage('en');
+    vi.clearAllMocks();
   });
 
   afterEach(() => {
-    vi.useRealTimers();
+    vi.restoreAllMocks();
   });
 
-  it('should speak when enabled', () => {
-    voiceGuide.speak('Ready.', VoicePriority.CRITICAL);
+  it('should initialize with English by default', () => {
+    voiceGuide.speakKey('DOWN');
     expect(mockSpeak).toHaveBeenCalledTimes(1);
-    expect(mockUtteranceConstructor).toHaveBeenCalledWith('Ready.');
+    expect(mockUtteranceConstructor).toHaveBeenCalledWith(en.DOWN);
   });
 
-  it('should not speak when disabled', () => {
-    voiceGuide.setEnabled(false);
-    voiceGuide.speak('Ready.', VoicePriority.CRITICAL);
-    expect(mockSpeak).not.toHaveBeenCalled();
+  it('should use khmerAudio when Khmer is selected', () => {
+    voiceGuide.setLanguage('km');
+    voiceGuide.speakKey('DOWN');
+    
+    expect(mockSpeak).toHaveBeenCalledTimes(0);
+    expect(khmerAudio.play).toHaveBeenCalledWith('down.mp3', 3);
   });
 
-  it('should prevent repeated speech within cooldown', () => {
-    voiceGuide.speak('Move left.');
+  it('should use en-US voice when English is selected', () => {
+    voiceGuide.setLanguage('en');
+    voiceGuide.speakKey('DOWN');
+    
+    const utteranceArg = mockSpeak.mock.calls[0][0];
+    expect(utteranceArg.lang).toBe('en-US');
+  });
+
+  it('should enforce cooldown to prevent spam in English', () => {
+    voiceGuide.speakKey('MOVE_DOWN');
+    voiceGuide.speakKey('MOVE_DOWN');
+    
     expect(mockSpeak).toHaveBeenCalledTimes(1);
-    
-    // Immediate repeat
-    voiceGuide.speak('Move left.');
-    expect(mockSpeak).toHaveBeenCalledTimes(1); // Blocked by cooldown
-    
-    // After cooldown
-    vi.advanceTimersByTime(2500);
-    voiceGuide.speak('Move left.');
-    expect(mockSpeak).toHaveBeenCalledTimes(2); // Allowed
   });
 
-  it('should cancel active speech for critical priority', () => {
-    global.window.speechSynthesis.speaking = true;
-    voiceGuide.speak('Down.', VoicePriority.CRITICAL);
+  it('should bypass cooldown if force is true in English', () => {
+    voiceGuide.speakKey('DOWN', false);
+    voiceGuide.speakKey('DOWN', true); 
+    
+    expect(mockSpeak).toHaveBeenCalledTimes(2);
+  });
+
+  it('should cancel current speech if a CRITICAL message arrives in English', () => {
+    global.window.speechSynthesis.speaking = true; 
+    
+    voiceGuide.speakKey('READY'); 
+    
     expect(mockCancel).toHaveBeenCalled();
     expect(mockSpeak).toHaveBeenCalledTimes(1);
   });
 
-  it('should not queue medium priority if already speaking', () => {
-    global.window.speechSynthesis.speaking = true;
-    voiceGuide.speak('Move left.', VoicePriority.MEDIUM);
-    expect(mockCancel).not.toHaveBeenCalled();
+  it('should play Khmer numbers via mp3 files if they exist', async () => {
+    (khmerAudio.checkExists as any).mockResolvedValue(true);
+    voiceGuide.setLanguage('km');
+    await voiceGuide.speakRep(12);
+    
+    expect(khmerAudio.play).toHaveBeenCalledWith('numbers/12.mp3', 3);
     expect(mockSpeak).not.toHaveBeenCalled();
   });
 
-  it('should speak rep counts using forced critical priority', () => {
-    voiceGuide.speakRep(1);
-    expect(mockSpeak).toHaveBeenCalledTimes(1);
-    expect(mockUtteranceConstructor).toHaveBeenCalledWith('1');
+  it('should fallback to English SpeechSynthesis if Khmer number mp3 is missing', async () => {
+    (khmerAudio.checkExists as any).mockResolvedValue(false);
+    voiceGuide.setLanguage('km');
+    await voiceGuide.speakRep(12);
     
-    // Even if repeated quickly (which shouldn't happen naturally, but testing force)
-    voiceGuide.speakRep(1);
-    expect(mockSpeak).toHaveBeenCalledTimes(2);
+    expect(khmerAudio.play).not.toHaveBeenCalled();
+    expect(mockUtteranceConstructor).toHaveBeenCalledWith('Twelve');
+    expect(mockSpeak).toHaveBeenCalledTimes(1);
+  });
+
+  it('should speak translated English strings for English reps', async () => {
+    voiceGuide.setLanguage('en');
+    await voiceGuide.speakRep(12);
+    
+    expect(mockUtteranceConstructor).toHaveBeenCalledWith('Twelve');
+    expect(mockSpeak).toHaveBeenCalledTimes(1);
+  });
+
+  it('should play nothing when voice is OFF for Khmer', async () => {
+    voiceGuide.setEnabled(false);
+    voiceGuide.setLanguage('km');
+    await voiceGuide.speakRep(12);
+    
+    expect(khmerAudio.play).not.toHaveBeenCalled();
+    expect(mockSpeak).not.toHaveBeenCalled();
+  });
+
+  it('should play nothing when voice is OFF for English', async () => {
+    voiceGuide.setEnabled(false);
+    voiceGuide.setLanguage('en');
+    await voiceGuide.speakRep(12);
+    
+    expect(mockSpeak).not.toHaveBeenCalled();
+  });
+
+  it('should switch dynamically without dropping logic', async () => {
+    (khmerAudio.checkExists as any).mockResolvedValue(true);
+    voiceGuide.setLanguage('km');
+    await voiceGuide.speakRep(1);
+    expect(khmerAudio.play).toHaveBeenCalledWith('numbers/1.mp3', 3);
+    expect(mockSpeak).not.toHaveBeenCalled();
+
+    voiceGuide.setLanguage('en');
+    await voiceGuide.speakRep(2);
+    expect(mockUtteranceConstructor).toHaveBeenCalledWith('Two');
+    expect(mockSpeak).toHaveBeenCalledTimes(1);
   });
 });

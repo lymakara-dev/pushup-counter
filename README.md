@@ -252,6 +252,32 @@ Planned future features:
 - Workout session history
 - Exercise analytics
 
+## Khmer Voice
+
+The application supports localized Khmer voice guidance using pre-generated local audio files rather than browser SpeechSynthesis, ensuring high-quality, natural-sounding playback that respects mobile browser autoplay restrictions.
+
+### Required Audio Assets
+
+The Khmer voice engine expects the following directory structure and files to be present in `public/audio/km/`. To add or replace Khmer voice feedback, simply place the corresponding `.mp3` files in this directory. The app will automatically load and cache them.
+
+```text
+public/
+└── audio/
+    └── km/
+        ├── ready.mp3
+        ├── start.mp3
+        ├── down.mp3
+        ├── up.mp3
+        ├── good-job.mp3
+        ├── keep-going.mp3
+        └── numbers/
+            ├── 1.mp3
+            ├── 2.mp3
+            └── ... (up to 100)
+```
+
+Missing files will degrade gracefully (logging a warning in the console) without breaking the application or the workout.
+
 ## Contributing
 
 1. Fork the repository.

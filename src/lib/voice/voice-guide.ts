@@ -1,3 +1,6 @@
+import { Language, getTranslation } from '../i18n/translations';
+import { khmerAudio } from './khmer-audio';
+
 export enum VoicePriority {
   LOW = 0,
   MEDIUM = 1,
@@ -5,38 +8,69 @@ export enum VoicePriority {
   CRITICAL = 3
 }
 
-export const VOICE_MESSAGES = {
-  NO_PERSON: { text: "Looking for your body.", priority: VoicePriority.HIGH },
-  BODY_NOT_VISIBLE: { text: "Show your whole body.", priority: VoicePriority.HIGH },
-  TOO_CLOSE: { text: "Move farther away.", priority: VoicePriority.MEDIUM },
-  TOO_FAR: { text: "Move closer.", priority: VoicePriority.MEDIUM },
-  MOVE_LEFT: { text: "Move left.", priority: VoicePriority.MEDIUM },
-  MOVE_RIGHT: { text: "Move right.", priority: VoicePriority.MEDIUM },
-  MOVE_UP: { text: "Move up.", priority: VoicePriority.MEDIUM },
-  MOVE_DOWN: { text: "Move down.", priority: VoicePriority.MEDIUM },
-  TURN_SIDEWAYS: { text: "Turn sideways.", priority: VoicePriority.HIGH },
-  GET_IN_PUSHUP_POSITION: { text: "Get into push-up position.", priority: VoicePriority.HIGH },
-  LOW_CONFIDENCE: { text: "Show your whole body.", priority: VoicePriority.HIGH },
-  PERFECT_POSITION: { text: "Perfect position.", priority: VoicePriority.LOW },
-  READY: { text: "Ready.", priority: VoicePriority.CRITICAL },
-  GO: { text: "Go.", priority: VoicePriority.CRITICAL },
-  DOWN: { text: "Down.", priority: VoicePriority.CRITICAL },
-  UP: { text: "Up.", priority: VoicePriority.CRITICAL },
-  POSE_LOST: { text: "Pose lost. Make sure your whole body is visible.", priority: VoicePriority.CRITICAL },
-  RESET: { text: "Reset.", priority: VoicePriority.LOW }
+export const VOICE_PRIORITIES: Record<string, VoicePriority> = {
+  NO_PERSON: VoicePriority.HIGH,
+  BODY_NOT_VISIBLE: VoicePriority.HIGH,
+  TOO_CLOSE: VoicePriority.MEDIUM,
+  TOO_FAR: VoicePriority.MEDIUM,
+  MOVE_LEFT: VoicePriority.MEDIUM,
+  MOVE_RIGHT: VoicePriority.MEDIUM,
+  MOVE_UP: VoicePriority.MEDIUM,
+  MOVE_DOWN: VoicePriority.MEDIUM,
+  TURN_SIDEWAYS: VoicePriority.HIGH,
+  FACE_CAMERA: VoicePriority.HIGH,
+  GET_IN_PUSHUP_POSITION: VoicePriority.HIGH,
+  LOW_CONFIDENCE: VoicePriority.HIGH,
+
+  PERFECT_POSITION: VoicePriority.LOW,
+  READY: VoicePriority.CRITICAL,
+  GO: VoicePriority.CRITICAL,
+  DOWN: VoicePriority.CRITICAL,
+  UP: VoicePriority.CRITICAL,
+  POSE_LOST: VoicePriority.CRITICAL,
+  RESET: VoicePriority.LOW
 };
+
+const KHMER_AUDIO_MAP: Record<string, string> = {
+  READY: 'ready.mp3',
+  GO: 'start.mp3',
+  DOWN: 'down.mp3',
+  UP: 'up.mp3',
+};
+
+function numberToEnglish(num: number): string {
+  if (num === 0) return "Zero";
+  const ones = ["", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine", "Ten", "Eleven", "Twelve", "Thirteen", "Fourteen", "Fifteen", "Sixteen", "Seventeen", "Eighteen", "Nineteen"];
+  const tens = ["", "", "Twenty", "Thirty", "Forty", "Fifty", "Sixty", "Seventy", "Eighty", "Ninety"];
+  
+  if (num < 20) return ones[num];
+  if (num < 100) {
+    return tens[Math.floor(num / 10)] + (num % 10 !== 0 ? "-" + ones[num % 10].toLowerCase() : "");
+  }
+  if (num === 100) return "One hundred";
+  if (num > 100 && num < 1000) {
+    return ones[Math.floor(num / 100)] + " hundred" + (num % 100 !== 0 ? " " + numberToEnglish(num % 100).toLowerCase() : "");
+  }
+  return num.toString();
+}
 
 export class VoiceGuide {
   private enabled: boolean = true;
+  private lang: Language = "en";
   private lastSpokenText: string = "";
   private lastSpokenTime: number = 0;
   private cooldownMs: number = 2000;
+  private voiceUnavailable: boolean = false;
 
   constructor() {
     if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('pushup_voice_enabled');
-      if (stored !== null) {
-        this.enabled = stored === 'true';
+      const storedEnabled = localStorage.getItem('pushup_voice_enabled');
+      if (storedEnabled !== null) {
+        this.enabled = storedEnabled === 'true';
+      }
+      const storedLang = localStorage.getItem('pushup_lang');
+      if (storedLang === 'km' || storedLang === 'en') {
+        this.lang = storedLang as Language;
       }
     }
   }
@@ -53,8 +87,39 @@ export class VoiceGuide {
     return this.enabled;
   }
 
-  public speak(text: string, priority: VoicePriority = VoicePriority.MEDIUM, force: boolean = false) {
-    if (!this.enabled || typeof window === 'undefined' || !window.speechSynthesis) return;
+  public setLanguage(lang: Language) {
+    this.lang = lang;
+    this.voiceUnavailable = false;
+    this.cancel(); // Stop currently playing audio when switching
+  }
+
+  public isVoiceUnavailable(): boolean {
+    return this.voiceUnavailable;
+  }
+
+  public speakKey(key: keyof typeof VOICE_PRIORITIES, force: boolean = false) {
+    if (!this.enabled) return;
+    const priority = VOICE_PRIORITIES[key] || VoicePriority.MEDIUM;
+    
+    if (this.lang === "km") {
+      const filename = KHMER_AUDIO_MAP[key];
+      if (filename) {
+        khmerAudio.play(filename, priority);
+      }
+      return;
+    }
+
+    // English logic
+    const t = getTranslation(this.lang);
+    const text = (t as any)[key] as string;
+    this.speakEnglish(text, priority, force);
+  }
+
+  private speakEnglish(text: string, priority: VoicePriority = VoicePriority.MEDIUM, force: boolean = false) {
+    if (typeof window === 'undefined' || !window.speechSynthesis) {
+       this.voiceUnavailable = true;
+       return;
+    }
 
     const now = Date.now();
     
@@ -63,11 +128,9 @@ export class VoiceGuide {
       return;
     }
 
-    // Cancel currently speaking if it's a critical override
     if (priority >= VoicePriority.CRITICAL && window.speechSynthesis.speaking) {
       window.speechSynthesis.cancel();
     } else if (window.speechSynthesis.speaking && !force) {
-      // Don't queue up normal repetitive messages if already speaking
       return;
     }
 
@@ -75,10 +138,14 @@ export class VoiceGuide {
     utterance.rate = 1.0;
     utterance.pitch = 1.0;
     utterance.volume = 1.0;
+    utterance.lang = 'en-US';
 
     const voices = window.speechSynthesis.getVoices();
-    const enVoice = voices.find(v => v.lang.startsWith('en-'));
-    if (enVoice) utterance.voice = enVoice;
+    const selectedVoice = voices.find(v => v.lang.startsWith('en-'));
+    
+    if (selectedVoice) {
+      utterance.voice = selectedVoice;
+    }
 
     window.speechSynthesis.speak(utterance);
 
@@ -86,15 +153,43 @@ export class VoiceGuide {
     this.lastSpokenTime = now;
   }
 
-  public speakRep(count: number) {
-    // Speak the actual number
-    this.speak(count.toString(), VoicePriority.CRITICAL, true);
+  public async speakRep(count: number) {
+    if (!this.enabled) return;
+
+    if (this.lang === "km") {
+      const filename = `numbers/${count}.mp3`;
+      const exists = await khmerAudio.checkExists(filename);
+      if (exists) {
+        khmerAudio.play(filename, VoicePriority.CRITICAL);
+        return;
+      }
+      // Fall back to English SpeechSynthesis below if missing
+    }
+
+    // English
+    this.speakEnglish(numberToEnglish(count), VoicePriority.CRITICAL, true);
   }
 
   public cancel() {
-    if (typeof window !== 'undefined' && window.speechSynthesis) {
-      window.speechSynthesis.cancel();
+    if (typeof window !== 'undefined') {
+      if (window.speechSynthesis) {
+        try {
+          window.speechSynthesis.cancel();
+        } catch (e) {
+          // Ignore unsupported environments
+        }
+      }
+      khmerAudio.cancel();
     }
+  }
+
+  // Called after user interaction (Start Camera)
+  public preload() {
+    if (this.lang === "km") {
+       khmerAudio.preloadBasic();
+    }
+    // Trick to initialize SpeechSynthesis on iOS/Android
+    this.speakEnglish("", VoicePriority.LOW, true);
   }
 }
 
