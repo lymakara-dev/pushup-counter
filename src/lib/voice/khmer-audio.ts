@@ -44,7 +44,26 @@ export class KhmerAudioManager {
     }
 
     // Prefetch common files into browser cache to ensure instant playback later
-    const basics = ['ready.mp3', 'start.mp3', 'down.mp3', 'up.mp3', 'good-job.mp3', 'keep-going.mp3'];
+    const basics = [
+      'ready.mp3',
+      'start.mp3',
+      'down.mp3',
+      'up.mp3',
+      'body-not-detected.mp3',
+      'whole-body.mp3',
+      'get-into-position.mp3',
+      'pose-ready.mp3',
+      'move-closer.mp3',
+      'move-farther.mp3',
+      'move-left.mp3',
+      'move-right.mp3',
+      'move-up.mp3',
+      'move-down.mp3',
+      'pose-lost.mp3',
+      'reset.mp3',
+      'side-camera.mp3',
+      'face-camera.mp3'
+    ];
     basics.forEach(file => {
       fetch(`${this.basePath}/${file}`).catch(() => {});
     });

@@ -39,8 +39,8 @@ describe('VoiceGuide', () => {
       } as any
     } as any;
     
-    global.SpeechSynthesisUtterance = function(text: string) {
-      mockUtteranceConstructor(text);
+    (global as any).SpeechSynthesisUtterance = function(this: any, text: string) {
+      (mockUtteranceConstructor as any)(text);
       this.text = text;
       this.rate = 1;
       this.pitch = 1;
@@ -81,6 +81,48 @@ describe('VoiceGuide', () => {
     expect(khmerAudio.play).toHaveBeenCalledWith('down.mp3', 3);
   });
 
+  it('should map Khmer positioning and feedback audio keys properly', () => {
+    voiceGuide.setLanguage('km');
+    
+    voiceGuide.speakKey('NO_PERSON');
+    expect(khmerAudio.play).toHaveBeenCalledWith('body-not-detected.mp3', 2);
+
+    voiceGuide.speakKey('BODY_NOT_VISIBLE');
+    expect(khmerAudio.play).toHaveBeenCalledWith('whole-body.mp3', 2);
+
+    voiceGuide.speakKey('TURN_SIDEWAYS');
+    expect(khmerAudio.play).toHaveBeenCalledWith('side-camera.mp3', 2);
+
+    voiceGuide.speakKey('FACE_CAMERA');
+    expect(khmerAudio.play).toHaveBeenCalledWith('face-camera.mp3', 2);
+
+    voiceGuide.speakKey('GET_IN_PUSHUP_POSITION');
+    expect(khmerAudio.play).toHaveBeenCalledWith('get-into-position.mp3', 2);
+
+    voiceGuide.speakKey('MOVE_UP');
+    expect(khmerAudio.play).toHaveBeenCalledWith('move-up.mp3', 1);
+
+    voiceGuide.speakKey('MOVE_DOWN');
+    expect(khmerAudio.play).toHaveBeenCalledWith('move-down.mp3', 1);
+
+    voiceGuide.speakKey('PERFECT_POSITION');
+    expect(khmerAudio.play).toHaveBeenCalledWith('pose-ready.mp3', 0);
+
+    voiceGuide.speakKey('POSE_LOST');
+    expect(khmerAudio.play).toHaveBeenCalledWith('pose-lost.mp3', 3);
+
+    voiceGuide.speakKey('RESET');
+    expect(khmerAudio.play).toHaveBeenCalledWith('reset.mp3', 0);
+  });
+
+  it('should enforce cooldown to prevent spam in Khmer', () => {
+    voiceGuide.setLanguage('km');
+    voiceGuide.speakKey('NO_PERSON');
+    voiceGuide.speakKey('NO_PERSON');
+    
+    expect(khmerAudio.play).toHaveBeenCalledTimes(1);
+  });
+
   it('should use en-US voice when English is selected', () => {
     voiceGuide.setLanguage('en');
     voiceGuide.speakKey('DOWN');
@@ -104,7 +146,7 @@ describe('VoiceGuide', () => {
   });
 
   it('should cancel current speech if a CRITICAL message arrives in English', () => {
-    global.window.speechSynthesis.speaking = true; 
+    (global.window.speechSynthesis as any).speaking = true; 
     
     voiceGuide.speakKey('READY'); 
     

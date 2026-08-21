@@ -31,11 +31,29 @@ export const VOICE_PRIORITIES: Record<string, VoicePriority> = {
   RESET: VoicePriority.LOW
 };
 
-const KHMER_AUDIO_MAP: Record<string, string> = {
+export const KHMER_AUDIO_MAP: Record<string, string> = {
+  // Positioning Issues
+  NO_PERSON: 'body-not-detected.mp3',
+  BODY_NOT_VISIBLE: 'whole-body.mp3',
+  TOO_CLOSE: 'move-farther.mp3',
+  TOO_FAR: 'move-closer.mp3',
+  MOVE_LEFT: 'move-left.mp3',
+  MOVE_RIGHT: 'move-right.mp3',
+  MOVE_UP: 'move-up.mp3',
+  MOVE_DOWN: 'move-down.mp3',
+  TURN_SIDEWAYS: 'side-camera.mp3',
+  FACE_CAMERA: 'face-camera.mp3',
+  GET_IN_PUSHUP_POSITION: 'get-into-position.mp3',
+  LOW_CONFIDENCE: 'whole-body.mp3',
+
+  // States & Feedback
+  PERFECT_POSITION: 'pose-ready.mp3',
   READY: 'ready.mp3',
   GO: 'start.mp3',
   DOWN: 'down.mp3',
   UP: 'up.mp3',
+  POSE_LOST: 'pose-lost.mp3',
+  RESET: 'reset.mp3'
 };
 
 function numberToEnglish(num: number): string {
@@ -58,6 +76,7 @@ export class VoiceGuide {
   private enabled: boolean = true;
   private lang: Language = "en";
   private lastSpokenText: string = "";
+  private lastSpokenKey: string = "";
   private lastSpokenTime: number = 0;
   private cooldownMs: number = 2000;
   private voiceUnavailable: boolean = false;
@@ -90,6 +109,9 @@ export class VoiceGuide {
   public setLanguage(lang: Language) {
     this.lang = lang;
     this.voiceUnavailable = false;
+    this.lastSpokenKey = "";
+    this.lastSpokenText = "";
+    this.lastSpokenTime = 0;
     this.cancel(); // Stop currently playing audio when switching
   }
 
@@ -99,11 +121,17 @@ export class VoiceGuide {
 
   public speakKey(key: keyof typeof VOICE_PRIORITIES, force: boolean = false) {
     if (!this.enabled) return;
-    const priority = VOICE_PRIORITIES[key] || VoicePriority.MEDIUM;
+    const priority = VOICE_PRIORITIES[key] ?? VoicePriority.MEDIUM;
+    const now = Date.now();
     
     if (this.lang === "km") {
       const filename = KHMER_AUDIO_MAP[key];
       if (filename) {
+        if (!force && key === this.lastSpokenKey && (now - this.lastSpokenTime < this.cooldownMs)) {
+          return;
+        }
+        this.lastSpokenKey = key;
+        this.lastSpokenTime = now;
         khmerAudio.play(filename, priority);
       }
       return;
