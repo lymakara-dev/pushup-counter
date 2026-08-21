@@ -28,7 +28,20 @@ export const VOICE_PRIORITIES: Record<string, VoicePriority> = {
   DOWN: VoicePriority.CRITICAL,
   UP: VoicePriority.CRITICAL,
   POSE_LOST: VoicePriority.CRITICAL,
-  RESET: VoicePriority.LOW
+  RESET: VoicePriority.LOW,
+
+  // Form Analysis & Anti-Cheat Feedback
+  GOOD_FORM: VoicePriority.MEDIUM,
+  GO_LOWER: VoicePriority.MEDIUM,
+  BODY_STRAIGHT: VoicePriority.HIGH,
+  MOVE_WHOLE_BODY: VoicePriority.HIGH,
+  REP_NOT_COUNTED: VoicePriority.HIGH,
+  INSUFFICIENT_ROM: VoicePriority.MEDIUM,
+  TOO_FAST: VoicePriority.HIGH,
+  IMPROVE_POSITION: VoicePriority.MEDIUM,
+  HIPS_TOO_HIGH: VoicePriority.MEDIUM,
+  HIPS_TOO_LOW: VoicePriority.MEDIUM,
+  COME_UP: VoicePriority.MEDIUM
 };
 
 export const KHMER_AUDIO_MAP: Record<string, string> = {
@@ -53,7 +66,20 @@ export const KHMER_AUDIO_MAP: Record<string, string> = {
   DOWN: 'down.mp3',
   UP: 'up.mp3',
   POSE_LOST: 'pose-lost.mp3',
-  RESET: 'reset.mp3'
+  RESET: 'reset.mp3',
+
+  // Form Analysis Feedback
+  GOOD_FORM: 'good-form.mp3',
+  GO_LOWER: 'go-lower.mp3',
+  BODY_STRAIGHT: 'body-straight.mp3',
+  MOVE_WHOLE_BODY: 'whole-body.mp3',
+  REP_NOT_COUNTED: 'bad-form.mp3',
+  INSUFFICIENT_ROM: 'go-lower.mp3',
+  TOO_FAST: 'too-fast.mp3',
+  IMPROVE_POSITION: 'improve-position.mp3',
+  HIPS_TOO_HIGH: 'hips-too-high.mp3',
+  HIPS_TOO_LOW: 'hips-too-low.mp3',
+  COME_UP: 'come-up.mp3'
 };
 
 function numberToEnglish(num: number): string {

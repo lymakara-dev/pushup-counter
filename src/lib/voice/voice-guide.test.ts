@@ -113,6 +113,21 @@ describe('VoiceGuide', () => {
 
     voiceGuide.speakKey('RESET');
     expect(khmerAudio.play).toHaveBeenCalledWith('reset.mp3', 0);
+
+    voiceGuide.speakKey('GOOD_FORM');
+    expect(khmerAudio.play).toHaveBeenCalledWith('good-form.mp3', 1);
+
+    voiceGuide.speakKey('GO_LOWER');
+    expect(khmerAudio.play).toHaveBeenCalledWith('go-lower.mp3', 1);
+
+    voiceGuide.speakKey('BODY_STRAIGHT');
+    expect(khmerAudio.play).toHaveBeenCalledWith('body-straight.mp3', 2);
+
+    voiceGuide.speakKey('REP_NOT_COUNTED');
+    expect(khmerAudio.play).toHaveBeenCalledWith('bad-form.mp3', 2);
+
+    voiceGuide.speakKey('TOO_FAST');
+    expect(khmerAudio.play).toHaveBeenCalledWith('too-fast.mp3', 2);
   });
 
   it('should enforce cooldown to prevent spam in Khmer', () => {

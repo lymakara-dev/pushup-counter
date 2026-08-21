@@ -62,7 +62,16 @@ export class KhmerAudioManager {
       'pose-lost.mp3',
       'reset.mp3',
       'side-camera.mp3',
-      'face-camera.mp3'
+      'face-camera.mp3',
+      'good-form.mp3',
+      'go-lower.mp3',
+      'body-straight.mp3',
+      'bad-form.mp3',
+      'too-fast.mp3',
+      'improve-position.mp3',
+      'hips-too-high.mp3',
+      'hips-too-low.mp3',
+      'come-up.mp3'
     ];
     basics.forEach(file => {
       fetch(`${this.basePath}/${file}`).catch(() => {});

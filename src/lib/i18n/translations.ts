@@ -18,6 +18,8 @@ export interface TranslationDictionary {
   sideView: string;
   frontView: string;
   language: string;
+  modeStrict: string;
+  modeStandard: string;
 
   // Position Issues
   NO_PERSON: string;
@@ -33,7 +35,7 @@ export interface TranslationDictionary {
   GET_IN_PUSHUP_POSITION: string;
   LOW_CONFIDENCE: string;
 
-  // States & Feedback
+  // States & Core Feedback
   PERFECT_POSITION: string;
   READY: string;
   GO: string;
@@ -41,6 +43,19 @@ export interface TranslationDictionary {
   UP: string;
   POSE_LOST: string;
   RESET: string;
+
+  // Form Analysis & Anti-Cheat Feedback
+  GOOD_FORM: string;
+  GO_LOWER: string;
+  BODY_STRAIGHT: string;
+  MOVE_WHOLE_BODY: string;
+  REP_NOT_COUNTED: string;
+  INSUFFICIENT_ROM: string;
+  TOO_FAST: string;
+  IMPROVE_POSITION: string;
+  HIPS_TOO_HIGH: string;
+  HIPS_TOO_LOW: string;
+  COME_UP: string;
   
   POSITIONING: string;
   WORKOUT: string;
@@ -69,6 +84,8 @@ export const en: TranslationDictionary = {
   sideView: "Side View",
   frontView: "Front View",
   language: "Language",
+  modeStrict: "Strict",
+  modeStandard: "Standard",
 
   NO_PERSON: "Looking for your body.",
   BODY_NOT_VISIBLE: "Show your whole body.",
@@ -90,6 +107,19 @@ export const en: TranslationDictionary = {
   UP: "Up.",
   POSE_LOST: "Pose lost. Make sure your whole body is visible.",
   RESET: "Reset.",
+
+  // Form Analysis Feedback
+  GOOD_FORM: "Good form.",
+  GO_LOWER: "Go lower.",
+  BODY_STRAIGHT: "Keep your body straight.",
+  MOVE_WHOLE_BODY: "Move your whole body.",
+  REP_NOT_COUNTED: "Rep not counted.",
+  INSUFFICIENT_ROM: "Insufficient range of motion.",
+  TOO_FAST: "Move too fast.",
+  IMPROVE_POSITION: "Improve your position.",
+  HIPS_TOO_HIGH: "Hips too high.",
+  HIPS_TOO_LOW: "Hips too low.",
+  COME_UP: "Come up.",
   
   POSITIONING: "Positioning",
   WORKOUT: "Workout",
@@ -117,6 +147,8 @@ export const km: TranslationDictionary = {
   sideView: "មើលពីចំហៀង",
   frontView: "មើលពីខាងមុខ",
   language: "ភាសា",
+  modeStrict: "ម៉ឺងម៉ាត់",
+  modeStandard: "ធម្មតា",
 
   NO_PERSON: "កំពុងស្វែងរករាងកាយរបស់អ្នក",
   BODY_NOT_VISIBLE: "សូមប្រាកដថារាងកាយរបស់អ្នកមើលឃើញពេញលេញ",
@@ -138,6 +170,19 @@ export const km: TranslationDictionary = {
   UP: "ឡើងលើ",
   POSE_LOST: "បាត់ទីតាំងរាងកាយ។ សូមបង្ហាញរាងកាយទាំងមូល។",
   RESET: "កំណត់ឡើងវិញ",
+
+  // Form Analysis Feedback
+  GOOD_FORM: "ទម្រង់ល្អណាស់",
+  GO_LOWER: "សូមចុះឱ្យទាបជាងនេះ",
+  BODY_STRAIGHT: "សូមរក្សារាងកាយឱ្យត្រង់",
+  MOVE_WHOLE_BODY: "សូមធ្វើចលនារាងកាយទាំងមូល",
+  REP_NOT_COUNTED: "មិនបានរាប់ដងនេះទេ",
+  INSUFFICIENT_ROM: "ចលនាមិនទូលំទូលាយគ្រប់គ្រាន់",
+  TOO_FAST: "លឿនពេក សូមបន្ថយល្បឿន",
+  IMPROVE_POSITION: "សូមកែតម្រូវទីតាំងរបស់អ្នក",
+  HIPS_TOO_HIGH: "ត្រគាកខ្ពស់ពេក",
+  HIPS_TOO_LOW: "ត្រគាកទាបពេក",
+  COME_UP: "សូមឡើងលើ",
   
   POSITIONING: "កំពុងរៀបចំទីតាំង",
   WORKOUT: "កំពុងហាត់ប្រាណ",
