@@ -28,7 +28,7 @@ const POSITION_CONFIG = {
   margin: 0.02,
 };
 
-export function validatePushUpPosition(landmarks: NormalizedLandmark[] | null | undefined, mode: CameraViewMode = "side"): PositionResult {
+export function validatePushUpPosition(landmarks: NormalizedLandmark[] | null | undefined, mode: CameraViewMode = "front"): PositionResult {
   if (!landmarks || landmarks.length === 0) {
     return { ready: false, issue: "NO_PERSON", message: "Looking for your body..." };
   }
@@ -87,12 +87,14 @@ export function validatePushUpPosition(landmarks: NormalizedLandmark[] | null | 
     return { ready: false, issue: "TOO_CLOSE", message: "Move farther away" };
   }
 
-  // For side view: check if height > width is invalid (they must be horizontal)
+  // Check if standing upright instead of in pushup position
+  if (mode === "side" && height > width * 1.5) {
+    return { ready: false, issue: "GET_IN_PUSHUP_POSITION", message: "Get into push-up position" };
+  } else if (mode === "front" && height > width * 2.2) {
+    return { ready: false, issue: "GET_IN_PUSHUP_POSITION", message: "Get into push-up position" };
+  }
+
   if (mode === "side") {
-    if (height > width * 1.5) {
-      return { ready: false, issue: "GET_IN_PUSHUP_POSITION", message: "Get into push-up position" };
-    }
-    
     // Turn sideways: distance between left and right shoulders should be small compared to body size
     const leftShoulder = landmarks[POSE_LANDMARKS.LEFT_SHOULDER];
     const rightShoulder = landmarks[POSE_LANDMARKS.RIGHT_SHOULDER];

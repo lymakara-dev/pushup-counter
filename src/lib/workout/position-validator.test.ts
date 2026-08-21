@@ -56,39 +56,50 @@ describe('validatePushUpPosition', () => {
   });
 
   it('Standing (Expected: GET_IN_PUSHUP_POSITION)', () => {
-    // Height > Width * 1.2
+    // Height > Width * 2.2
     const landmarks = createMockLandmarks();
     landmarks[POSE_LANDMARKS.NOSE] = { x: 0.5, y: 0.1, z: 0, visibility: 0.9 };
     landmarks[POSE_LANDMARKS.LEFT_ANKLE] = { x: 0.5, y: 0.9, z: 0, visibility: 0.9 };
     // height = 0.8, width = 0 (or very small)
-    const result = validatePushUpPosition(landmarks);
+    const result = validatePushUpPosition(landmarks, 'side');
     expect(result.ready).toBe(false);
     expect(result.issue).toBe("GET_IN_PUSHUP_POSITION");
+
+    const resultFront = validatePushUpPosition(landmarks, 'front');
+    expect(resultFront.ready).toBe(false);
+    expect(resultFront.issue).toBe("GET_IN_PUSHUP_POSITION");
   });
 
-  it('Wrong orientation (Expected: TURN_SIDEWAYS)', () => {
-    // Shoulder width > overall width * 0.35
+  it('Side View: Wrong orientation (Expected: TURN_SIDEWAYS)', () => {
+    // Shoulder width > overall width * 0.35 in side view
     const landmarks = createMockLandmarks();
-    // Make body width = 0.6
     landmarks[POSE_LANDMARKS.LEFT_ANKLE] = { x: 0.2, y: 0.5, z: 0, visibility: 0.9 };
     landmarks[POSE_LANDMARKS.RIGHT_WRIST] = { x: 0.8, y: 0.5, z: 0, visibility: 0.9 };
-    // Make shoulder width = 0.4
     landmarks[POSE_LANDMARKS.LEFT_SHOULDER] = { x: 0.3, y: 0.5, z: 0, visibility: 0.9 };
     landmarks[POSE_LANDMARKS.RIGHT_SHOULDER] = { x: 0.7, y: 0.5, z: 0, visibility: 0.9 };
-    // Width = 0.6, Height = 0, shoulderWidth = 0.4 > 0.6 * 0.35 = 0.21
-    const result = validatePushUpPosition(landmarks);
+    const result = validatePushUpPosition(landmarks, 'side');
     expect(result.ready).toBe(false);
     expect(result.issue).toBe("TURN_SIDEWAYS");
   });
 
-  it('Correct push-up position (Expected: true)', () => {
+  it('Side View: Correct push-up position (Expected: true)', () => {
     const landmarks = createMockLandmarks();
-    // Ankle left, shoulder right, side-profile
     landmarks[POSE_LANDMARKS.LEFT_ANKLE] = { x: 0.2, y: 0.5, z: 0, visibility: 0.9 };
     landmarks[POSE_LANDMARKS.LEFT_SHOULDER] = { x: 0.8, y: 0.4, z: 0, visibility: 0.9 };
     landmarks[POSE_LANDMARKS.RIGHT_SHOULDER] = { x: 0.8, y: 0.4, z: 0, visibility: 0.1 }; // Not visible, side profile
     
-    const result = validatePushUpPosition(landmarks);
+    const result = validatePushUpPosition(landmarks, 'side');
+    expect(result.ready).toBe(true);
+  });
+
+  it('Front View: Correct push-up position (Expected: true)', () => {
+    const landmarks = createMockLandmarks();
+    landmarks[POSE_LANDMARKS.LEFT_SHOULDER] = { x: 0.3, y: 0.4, z: 0, visibility: 0.9 };
+    landmarks[POSE_LANDMARKS.RIGHT_SHOULDER] = { x: 0.7, y: 0.4, z: 0, visibility: 0.9 };
+    landmarks[POSE_LANDMARKS.LEFT_WRIST] = { x: 0.2, y: 0.6, z: 0, visibility: 0.9 };
+    landmarks[POSE_LANDMARKS.RIGHT_WRIST] = { x: 0.8, y: 0.6, z: 0, visibility: 0.9 };
+    
+    const result = validatePushUpPosition(landmarks, 'front');
     expect(result.ready).toBe(true);
   });
 });

@@ -20,7 +20,7 @@ export const PUSH_UP_CONFIG = {
 export class PushUpDetector {
   private count = 0;
   private state: PushUpState = PushUpState.UNKNOWN;
-  private mode: CameraViewMode = "side";
+  private mode: CameraViewMode = "front";
   private validationMode: WorkoutValidationMode = "strict";
   
   private sideDetector: SidePushUpDetector;

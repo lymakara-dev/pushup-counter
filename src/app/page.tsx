@@ -2,7 +2,7 @@ import PushUpApp from '@/components/workout/PushUpApp';
 
 export default function Home() {
   return (
-    <main className="min-h-screen bg-black flex flex-col items-center justify-center p-4">
+    <main className="w-full min-h-[100dvh] bg-[#09090b] text-white flex flex-col items-center justify-center overflow-x-hidden">
       <PushUpApp />
     </main>
   );
