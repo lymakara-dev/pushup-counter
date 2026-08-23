@@ -113,7 +113,7 @@ export interface FormValidationResult {
 export class PushUpFormValidator {
   private config: PushUpFormConfig;
 
-  constructor(config: PushUpFormConfig = DEFAULT_STRICT_CONFIG) {
+  constructor(config: PushUpFormConfig = DEFAULT_STANDARD_CONFIG) {
     this.config = { ...config };
   }
 

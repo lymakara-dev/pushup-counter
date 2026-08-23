@@ -1,7 +1,7 @@
 import { NormalizedLandmark, POSE_LANDMARKS } from '../pose/landmarks';
 import { calculateAngle, calculateDistance, getMidpoint } from '../pose/pose-utils';
 import { MovementSmoother } from './movement-smoother';
-import { PushUpFormValidator, FormMetrics, PushUpFormConfig, DEFAULT_STRICT_CONFIG } from './pushup-form-validator';
+import { PushUpFormValidator, FormMetrics, PushUpFormConfig, DEFAULT_STANDARD_CONFIG } from './pushup-form-validator';
 import { PushUpState, PushUpResult } from './pushup-side-detector';
 
 export class FrontPushUpDetector {
@@ -39,7 +39,7 @@ export class FrontPushUpDetector {
   // Last evaluated rep result
   private lastRepResult: PushUpResult | null = null;
 
-  constructor(config: PushUpFormConfig = DEFAULT_STRICT_CONFIG) {
+  constructor(config: PushUpFormConfig = DEFAULT_STANDARD_CONFIG) {
     this.validator = new PushUpFormValidator(config);
   }
 

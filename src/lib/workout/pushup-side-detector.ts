@@ -1,7 +1,7 @@
 import { NormalizedLandmark, POSE_LANDMARKS } from '../pose/landmarks';
 import { calculateAngle, calculateDistance, isLandmarkVisible } from '../pose/pose-utils';
 import { MovementSmoother } from './movement-smoother';
-import { PushUpFormValidator, FormMetrics, PushUpFormConfig, DEFAULT_STRICT_CONFIG } from './pushup-form-validator';
+import { PushUpFormValidator, FormMetrics, PushUpFormConfig, DEFAULT_STANDARD_CONFIG } from './pushup-form-validator';
 
 export enum PushUpState {
   UNKNOWN = 'UNKNOWN',
@@ -56,7 +56,7 @@ export class SidePushUpDetector {
   // Last evaluated rep result
   private lastRepResult: PushUpResult | null = null;
 
-  constructor(config: PushUpFormConfig = DEFAULT_STRICT_CONFIG) {
+  constructor(config: PushUpFormConfig = DEFAULT_STANDARD_CONFIG) {
     this.validator = new PushUpFormValidator(config);
   }
 

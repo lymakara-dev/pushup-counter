@@ -319,3 +319,33 @@ describe('Strict PushUpDetector (Front View Anti-Cheat)', () => {
     expect(detector.getCount()).toBe(2);
   });
 });
+
+describe('Default Standard Mode PushUpDetector', () => {
+  it('instantiates in standard validation mode by default', () => {
+    const detector = new PushUpDetector();
+    expect(detector.getValidationMode()).toBe('standard');
+  });
+
+  it('validates reps with standard thresholds by default', () => {
+    const detector = new PushUpDetector();
+    detector.setMode('side');
+
+    let ts = 0;
+    // Settle in READY (top: 145 deg, shoulderY = 0.35)
+    ts = sendSideFrames(detector, 145, 0.35, 8, ts);
+    expect(detector.getState()).toBe(PushUpState.READY);
+
+    // Transition DOWN (bottom: 102 deg, shoulderY = 0.50 -> standard bottom <= 105 deg)
+    ts += 300;
+    ts = sendSideFrames(detector, 102, 0.50, 8, ts);
+    expect(detector.getState()).toBe(PushUpState.DOWN);
+
+    // Return UP (top: 145 deg)
+    ts += 400;
+    ts = sendSideFrames(detector, 145, 0.35, 8, ts);
+
+    expect(detector.getState()).toBe(PushUpState.READY);
+    expect(detector.getCount()).toBe(1);
+  });
+});
+

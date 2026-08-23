@@ -21,12 +21,12 @@ export class PushUpDetector {
   private count = 0;
   private state: PushUpState = PushUpState.UNKNOWN;
   private mode: CameraViewMode = "front";
-  private validationMode: WorkoutValidationMode = "strict";
+  private validationMode: WorkoutValidationMode = "standard";
   
   private sideDetector: SidePushUpDetector;
   private frontDetector: FrontPushUpDetector;
 
-  constructor(validationMode: WorkoutValidationMode = "strict") {
+  constructor(validationMode: WorkoutValidationMode = "standard") {
     this.validationMode = validationMode;
     const config = validationMode === "strict" ? DEFAULT_STRICT_CONFIG : DEFAULT_STANDARD_CONFIG;
     this.sideDetector = new SidePushUpDetector(config);

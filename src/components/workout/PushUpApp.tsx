@@ -30,7 +30,7 @@ export default function PushUpApp() {
   const [isMirrored, setIsMirrored] = useState<boolean>(true);
   const [voiceEnabled, setVoiceEnabled] = useState<boolean>(true);
   const [cameraMode, setCameraMode] = useState<CameraViewMode>("front");
-  const [validationMode, setValidationMode] = useState<WorkoutValidationMode>("strict");
+  const [validationMode, setValidationMode] = useState<WorkoutValidationMode>("standard");
   const [lang, setLang] = useState<Language>("en");
   const [showDebug, setShowDebug] = useState<boolean>(false);
   
@@ -43,7 +43,7 @@ export default function PushUpApp() {
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const overlayRef = useRef<PoseOverlayRef>(null);
   const animationRef = useRef<number | null>(null);
-  const detectorRef = useRef<PushUpDetector>(new PushUpDetector("strict"));
+  const detectorRef = useRef<PushUpDetector>(new PushUpDetector("standard"));
   const lastVideoTimeRef = useRef<number>(-1);
   const landmarkerRef = useRef<PoseLandmarker | null>(null);
 
@@ -99,7 +99,7 @@ export default function PushUpApp() {
   };
 
   const handleValidationModeToggle = () => {
-    const nextMode: WorkoutValidationMode = validationMode === "strict" ? "standard" : "strict";
+    const nextMode: WorkoutValidationMode = validationMode === "standard" ? "strict" : "standard";
     setValidationMode(nextMode);
     detectorRef.current.setValidationMode(nextMode);
   };
