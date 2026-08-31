@@ -93,8 +93,14 @@ export class KhmerAudioManager {
     }
   }
 
-  public play(filename: string, priority: VoicePriority) {
+  public play(filename: string, priority: VoicePriority, force: boolean = false) {
     if (typeof window === 'undefined') return;
+
+    if (priority >= VoicePriority.CRITICAL && this.isPlaying) {
+      this.cancel();
+    } else if (this.isPlaying && !force) {
+      return;
+    }
 
     if (priority === VoicePriority.CRITICAL) {
       this.queue = this.queue.filter(t => t.priority === VoicePriority.CRITICAL);

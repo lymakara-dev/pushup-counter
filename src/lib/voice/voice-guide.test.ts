@@ -78,56 +78,56 @@ describe('VoiceGuide', () => {
     voiceGuide.speakKey('DOWN');
     
     expect(mockSpeak).toHaveBeenCalledTimes(0);
-    expect(khmerAudio.play).toHaveBeenCalledWith('down.mp3', 3);
+    expect(khmerAudio.play).toHaveBeenCalledWith('down.mp3', 3, false);
   });
 
   it('should map Khmer positioning and feedback audio keys properly', () => {
     voiceGuide.setLanguage('km');
     
     voiceGuide.speakKey('NO_PERSON');
-    expect(khmerAudio.play).toHaveBeenCalledWith('body-not-detected.mp3', 2);
+    expect(khmerAudio.play).toHaveBeenCalledWith('body-not-detected.mp3', 2, false);
 
     voiceGuide.speakKey('BODY_NOT_VISIBLE');
-    expect(khmerAudio.play).toHaveBeenCalledWith('whole-body.mp3', 2);
+    expect(khmerAudio.play).toHaveBeenCalledWith('whole-body.mp3', 2, false);
 
     voiceGuide.speakKey('TURN_SIDEWAYS');
-    expect(khmerAudio.play).toHaveBeenCalledWith('side-camera.mp3', 2);
+    expect(khmerAudio.play).toHaveBeenCalledWith('side-camera.mp3', 2, false);
 
     voiceGuide.speakKey('FACE_CAMERA');
-    expect(khmerAudio.play).toHaveBeenCalledWith('face-camera.mp3', 2);
+    expect(khmerAudio.play).toHaveBeenCalledWith('face-camera.mp3', 2, false);
 
     voiceGuide.speakKey('GET_IN_PUSHUP_POSITION');
-    expect(khmerAudio.play).toHaveBeenCalledWith('get-into-position.mp3', 2);
+    expect(khmerAudio.play).toHaveBeenCalledWith('get-into-position.mp3', 2, false);
 
     voiceGuide.speakKey('MOVE_UP');
-    expect(khmerAudio.play).toHaveBeenCalledWith('move-up.mp3', 1);
+    expect(khmerAudio.play).toHaveBeenCalledWith('move-up.mp3', 1, false);
 
     voiceGuide.speakKey('MOVE_DOWN');
-    expect(khmerAudio.play).toHaveBeenCalledWith('move-down.mp3', 1);
+    expect(khmerAudio.play).toHaveBeenCalledWith('move-down.mp3', 1, false);
 
     voiceGuide.speakKey('PERFECT_POSITION');
-    expect(khmerAudio.play).toHaveBeenCalledWith('pose-ready.mp3', 0);
+    expect(khmerAudio.play).toHaveBeenCalledWith('pose-ready.mp3', 0, false);
 
     voiceGuide.speakKey('POSE_LOST');
-    expect(khmerAudio.play).toHaveBeenCalledWith('pose-lost.mp3', 3);
+    expect(khmerAudio.play).toHaveBeenCalledWith('pose-lost.mp3', 3, false);
 
     voiceGuide.speakKey('RESET');
-    expect(khmerAudio.play).toHaveBeenCalledWith('reset.mp3', 0);
+    expect(khmerAudio.play).toHaveBeenCalledWith('reset.mp3', 0, false);
 
     voiceGuide.speakKey('GOOD_FORM');
-    expect(khmerAudio.play).toHaveBeenCalledWith('good-form.mp3', 1);
+    expect(khmerAudio.play).toHaveBeenCalledWith('good-form.mp3', 1, false);
 
     voiceGuide.speakKey('GO_LOWER');
-    expect(khmerAudio.play).toHaveBeenCalledWith('go-lower.mp3', 1);
+    expect(khmerAudio.play).toHaveBeenCalledWith('go-lower.mp3', 1, false);
 
     voiceGuide.speakKey('BODY_STRAIGHT');
-    expect(khmerAudio.play).toHaveBeenCalledWith('body-straight.mp3', 2);
+    expect(khmerAudio.play).toHaveBeenCalledWith('body-straight.mp3', 2, false);
 
     voiceGuide.speakKey('REP_NOT_COUNTED');
-    expect(khmerAudio.play).toHaveBeenCalledWith('bad-form.mp3', 2);
+    expect(khmerAudio.play).toHaveBeenCalledWith('bad-form.mp3', 2, false);
 
     voiceGuide.speakKey('TOO_FAST');
-    expect(khmerAudio.play).toHaveBeenCalledWith('too-fast.mp3', 2);
+    expect(khmerAudio.play).toHaveBeenCalledWith('too-fast.mp3', 2, false);
   });
 
   it('should enforce cooldown to prevent spam in Khmer', () => {
@@ -174,7 +174,7 @@ describe('VoiceGuide', () => {
     voiceGuide.setLanguage('km');
     await voiceGuide.speakRep(12);
     
-    expect(khmerAudio.play).toHaveBeenCalledWith('numbers/12.mp3', 3);
+    expect(khmerAudio.play).toHaveBeenCalledWith('numbers/12.mp3', 3, true);
     expect(mockSpeak).not.toHaveBeenCalled();
   });
 
@@ -217,7 +217,7 @@ describe('VoiceGuide', () => {
     (khmerAudio.checkExists as any).mockResolvedValue(true);
     voiceGuide.setLanguage('km');
     await voiceGuide.speakRep(1);
-    expect(khmerAudio.play).toHaveBeenCalledWith('numbers/1.mp3', 3);
+    expect(khmerAudio.play).toHaveBeenCalledWith('numbers/1.mp3', 3, true);
     expect(mockSpeak).not.toHaveBeenCalled();
 
     voiceGuide.setLanguage('en');

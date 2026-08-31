@@ -158,7 +158,7 @@ export class VoiceGuide {
         }
         this.lastSpokenKey = key;
         this.lastSpokenTime = now;
-        khmerAudio.play(filename, priority);
+        khmerAudio.play(filename, priority, force);
       }
       return;
     }
@@ -214,7 +214,7 @@ export class VoiceGuide {
       const filename = `numbers/${count}.mp3`;
       const exists = await khmerAudio.checkExists(filename);
       if (exists) {
-        khmerAudio.play(filename, VoicePriority.CRITICAL);
+        khmerAudio.play(filename, VoicePriority.CRITICAL, true);
         return;
       }
       // Fall back to English SpeechSynthesis below if missing
