@@ -15,7 +15,11 @@ export function PositionGuide({ appState, positionMessage }: PositionGuideProps)
   return (
     <div className="absolute inset-0 z-30 pointer-events-none flex flex-col items-center justify-between p-6 sm:p-8 select-none">
       {/* Top Floating Prompt */}
-      <div className="mt-14 sm:mt-16 px-5 py-2 rounded-full bg-zinc-900/90 border border-zinc-700/80 text-white font-semibold text-sm sm:text-base backdrop-blur-md shadow-xl text-center max-w-[85%] truncate">
+      <div
+        role="status"
+        aria-live="polite"
+        className="mt-14 sm:mt-16 px-5 py-2 rounded-full bg-zinc-900/90 border border-zinc-700/80 text-white font-semibold text-sm sm:text-base backdrop-blur-md shadow-xl text-center max-w-[85%] truncate"
+      >
         {positionMessage}
       </div>
 
@@ -41,7 +45,11 @@ export function PositionStatus({ appState, positionMessage }: PositionGuideProps
       className="absolute left-0 right-0 z-30 pointer-events-none flex justify-center px-4"
       style={{ top: 'max(1rem, env(safe-area-inset-top))' }}
     >
-      <div className="bg-amber-500/90 text-black px-4 py-1.5 rounded-full font-semibold text-xs sm:text-sm shadow-lg backdrop-blur-sm border border-amber-400/80 text-center max-w-[85%] truncate select-none">
+      <div
+        role="status"
+        aria-live="polite"
+        className="bg-amber-500/90 text-black px-4 py-1.5 rounded-full font-semibold text-xs sm:text-sm shadow-lg backdrop-blur-sm border border-amber-400/80 text-center max-w-[85%] truncate select-none"
+      >
         {positionMessage}
       </div>
     </div>

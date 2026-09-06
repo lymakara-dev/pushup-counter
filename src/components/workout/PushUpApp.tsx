@@ -80,6 +80,7 @@ export default function PushUpApp() {
     voiceGuide.setLanguage(newLang);
     if (typeof window !== 'undefined') {
       localStorage.setItem('pushup_lang', newLang);
+      document.documentElement.lang = newLang;
     }
   };
 
@@ -123,6 +124,19 @@ export default function PushUpApp() {
     loadModel();
   }, []);
 
+  const lastDebugUpdateRef = useRef<number>(0);
+
+  // Unmount cleanup
+  useEffect(() => {
+    return () => {
+      if (animationRef.current) {
+        cancelAnimationFrame(animationRef.current);
+        animationRef.current = null;
+      }
+      voiceGuide.cancel();
+    };
+  }, []);
+
   const handleVideoReady = useCallback((video: HTMLVideoElement, mirrored: boolean) => {
     videoRef.current = video;
     setIsMirrored(mirrored);
@@ -135,6 +149,12 @@ export default function PushUpApp() {
     syncAppState("CAMERA_OFF");
     voiceGuide.cancel();
     stopDetectionLoop();
+    readyStartTimeRef.current = 0;
+    invalidStartTimeRef.current = 0;
+    poseLostTimeRef.current = 0;
+    lastVideoTimeRef.current = -1;
+    prevPushUpStateRef.current = PushUpState.UNKNOWN;
+    prevRepCountRef.current = 0;
   }, []);
 
   const stopDetectionLoop = () => {
@@ -148,6 +168,12 @@ export default function PushUpApp() {
   const startDetectionLoop = () => {
     if (!videoRef.current || !landmarkerRef.current) return;
     
+    // Ensure any existing loop is cancelled before starting a new one
+    if (animationRef.current) {
+      cancelAnimationFrame(animationRef.current);
+      animationRef.current = null;
+    }
+
     const video = videoRef.current;
     let wasVideoReady = true;
 
@@ -186,7 +212,11 @@ export default function PushUpApp() {
             
             overlayRef.current?.drawPose(landmarks, video.videoWidth, video.videoHeight, isMirroredRef.current);
 
-            const position = validatePushUpPosition(landmarks, cameraModeRef.current);
+            const position = validatePushUpPosition(landmarks, cameraModeRef.current, {
+              minVisibility: detectorRef.current.getConfig().minLandmarkVisibility,
+              isMirrored: isMirroredRef.current,
+              isWorkoutActive: appStateRef.current === "WORKOUT",
+            });
 
             if (appStateRef.current === "POSITIONING" || appStateRef.current === "READY") {
                if (position.ready) {
@@ -231,8 +261,11 @@ export default function PushUpApp() {
                // Strict Anti-Cheat Form Detection
                const result = detectorRef.current.update(landmarks, startTimeMs);
                
-               if (process.env.NODE_ENV !== 'production') {
-                 setLiveDebugResult(result);
+               if (process.env.NODE_ENV !== 'production' && showDebug) {
+                 if (startTimeMs - lastDebugUpdateRef.current > 200) {
+                   lastDebugUpdateRef.current = startTimeMs;
+                   setLiveDebugResult(result);
+                 }
                }
 
                if (prevPushUpStateRef.current !== result.state) {
@@ -405,6 +438,11 @@ export default function PushUpApp() {
                 onVideoReady={handleVideoReady}
                 onCameraStop={handleCameraStop}
                 isMirrored={isMirrored}
+                errorPermission={t.cameraPermissionError}
+                errorNotFound={t.cameraNotFoundError}
+                errorGeneric={t.cameraGenericError}
+                tryAgainLabel={t.tryAgain}
+                switchCameraLabel={t.switchCamera}
               />
 
               <PoseOverlay ref={overlayRef} />

@@ -16,6 +16,7 @@ export class KhmerAudioManager {
   private audioContextUnlocked = false;
 
   private availabilityCache = new Map<string, boolean>();
+  private currentAudioResolve: (() => void) | null = null;
 
   private getSharedAudio(): HTMLAudioElement {
     if (!this.sharedAudio) {
@@ -28,7 +29,7 @@ export class KhmerAudioManager {
     if (typeof window === 'undefined') return;
     const audio = this.getSharedAudio();
 
-    // Unlock the audio context during the user interaction (Start Camera click)
+    // Unlock the audio context during the user interaction (Start Camera click or language switch)
     if (!this.audioContextUnlocked) {
       audio.src = `${this.basePath}/ready.mp3`;
       audio.load();
@@ -71,7 +72,8 @@ export class KhmerAudioManager {
       'improve-position.mp3',
       'hips-too-high.mp3',
       'hips-too-low.mp3',
-      'come-up.mp3'
+      'come-up.mp3',
+      'rep-completed.mp3',
     ];
     basics.forEach(file => {
       fetch(`${this.basePath}/${file}`).catch(() => {});
@@ -118,10 +120,16 @@ export class KhmerAudioManager {
 
   public cancel() {
     this.queue = [];
+    if (this.currentAudioResolve) {
+      const resolve = this.currentAudioResolve;
+      this.currentAudioResolve = null;
+      resolve();
+    }
     if (this.sharedAudio) {
+      this.sharedAudio.onended = null;
+      this.sharedAudio.onerror = null;
       this.sharedAudio.pause();
       try {
-        // Safari/Chrome throws InvalidStateError if readyState is 0
         if (this.sharedAudio.readyState > 0) {
           this.sharedAudio.currentTime = 0;
         }
@@ -143,21 +151,28 @@ export class KhmerAudioManager {
 
     try {
       await new Promise<void>((resolve) => {
-        // Change src to the requested file
+        this.currentAudioResolve = resolve;
         audio.src = `${this.basePath}/${next.filename}`;
         audio.load();
 
-        audio.onended = () => resolve();
-        audio.onerror = () => {
-          console.warn(`[KhmerVoice] Missing or failed audio: ${this.basePath}/${next.filename}`);
+        const done = () => {
+          this.currentAudioResolve = null;
+          audio.onended = null;
+          audio.onerror = null;
           resolve();
         };
-        
+
+        audio.onended = done;
+        audio.onerror = () => {
+          console.warn(`[KhmerVoice] Missing or failed audio: ${this.basePath}/${next.filename}`);
+          done();
+        };
+
         audio.play().catch(e => {
           if (e.name !== "NotAllowedError") {
-             console.warn(`[KhmerVoice] Failed to play: ${this.basePath}/${next.filename}`, e);
+            console.warn(`[KhmerVoice] Failed to play: ${this.basePath}/${next.filename}`, e);
           }
-          resolve();
+          done();
         });
       });
     } catch (err) {

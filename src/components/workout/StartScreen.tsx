@@ -44,7 +44,7 @@ export function StartScreen({
           <div className="flex bg-zinc-900 rounded-full p-0.5 border border-zinc-800">
             <button
               onClick={() => onLanguageChange('en')}
-              className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
+              className={`px-3 py-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-xs font-semibold rounded-full transition-colors cursor-pointer ${
                 lang === 'en' ? 'bg-zinc-200 text-black shadow-sm' : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
@@ -52,7 +52,7 @@ export function StartScreen({
             </button>
             <button
               onClick={() => onLanguageChange('km')}
-              className={`px-3 py-1 text-xs font-semibold rounded-full transition-colors ${
+              className={`px-3 py-2 min-h-[44px] min-w-[44px] flex items-center justify-center text-xs font-semibold rounded-full transition-colors cursor-pointer ${
                 lang === 'km' ? 'bg-zinc-200 text-black shadow-sm' : 'text-zinc-400 hover:text-zinc-200'
               }`}
             >
@@ -92,15 +92,15 @@ export function StartScreen({
             <div className="flex items-center justify-center gap-3 mt-2">
               <button
                 onClick={onToggleVoice}
-                className="flex items-center gap-2 px-4 py-2 rounded-full bg-zinc-900/80 border border-zinc-800 text-zinc-300 text-xs font-medium hover:border-zinc-700 hover:text-white transition-colors"
+                className="flex items-center gap-2 px-4 py-2.5 min-h-[44px] rounded-full bg-zinc-900/80 border border-zinc-800 text-zinc-300 text-xs font-medium hover:border-zinc-700 hover:text-white transition-colors cursor-pointer"
               >
-                <span>{voiceEnabled ? "🔊" : "🔇"}</span>
+                {/* <span>{voiceEnabled ? "🔊" : "🔇"}</span> */}
                 <span>{voiceEnabled ? t.voiceOn : t.voiceOff}</span>
               </button>
 
               <button
                 onClick={onToggleValidationMode}
-                className="px-4 py-2 rounded-full bg-zinc-900/80 border border-zinc-800 text-zinc-300 text-xs font-medium hover:border-zinc-700 hover:text-white transition-colors"
+                className="px-4 py-2.5 min-h-[44px] rounded-full bg-zinc-900/80 border border-zinc-800 text-zinc-300 text-xs font-medium hover:border-zinc-700 hover:text-white transition-colors cursor-pointer"
               >
                 {validationMode === "strict" ? `⚡ ${t.modeStrict}` : `🛡️ ${t.modeStandard}`}
               </button>
@@ -108,7 +108,7 @@ export function StartScreen({
 
             {isVoiceUnavailable && voiceEnabled && (
               <span className="text-xs text-amber-500 mt-1">
-                Khmer voice unavailable / ឧបករណ៍នេះមិនមានសំឡេងខ្មែរទេ
+                {t.voiceUnavailableNotice}
               </span>
             )}
           </div>

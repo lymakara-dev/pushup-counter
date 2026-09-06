@@ -45,6 +45,7 @@ export class SidePushUpDetector {
   private torsoLength = 0.3;
 
   private lastAlignmentDeviation = 0;
+  private maxAlignmentDeviationInCycle = 0;
   private lastAlignmentAngle = 180;
   private lastAvgVisibility = 1;
 
@@ -78,6 +79,7 @@ export class SidePushUpDetector {
     this.topValid = false;
     this.minElbowAngleInCycle = 180;
     this.maxElbowAngleInCycle = 0;
+    this.maxAlignmentDeviationInCycle = 0;
     this.pendingState = null;
     this.stateConfirmCount = 0;
     this.lastTimestamp = 0;
@@ -146,14 +148,31 @@ export class SidePushUpDetector {
       this.torsoLength = Math.max(0.15, calculateDistance(shoulder, hip));
     }
 
-    // Track extreme angles and positions during cycle
+    // Track extreme angles, alignment deviations, and positions during cycle
     if (this.isCycleActive) {
       this.minElbowAngleInCycle = Math.min(this.minElbowAngleInCycle, elbowAngle);
       this.maxElbowAngleInCycle = Math.max(this.maxElbowAngleInCycle, elbowAngle);
+      this.maxAlignmentDeviationInCycle = Math.max(this.maxAlignmentDeviationInCycle, this.lastAlignmentDeviation);
       this.shoulderBottomY = Math.max(this.shoulderBottomY, shoulder.y); // y increases going down
       if (hip) {
         this.hipBottomY = Math.max(this.hipBottomY, hip.y);
       }
+
+      // Handle stalled repetition timeout
+      if (timestamp - this.cycleStartTime > config.maxRepDurationMs) {
+        this.isCycleActive = false;
+        this.bottomValid = false;
+        this.topValid = false;
+        this.state = PushUpState.READY;
+        this.pendingState = null;
+        this.stateConfirmCount = 0;
+      }
+    } else if (this.state === PushUpState.READY && elbowAngle >= config.sideTopElbowAngle - 8) {
+      // Keep baseline dynamically fresh while resting in plank position
+      this.shoulderTopY = shoulder.y;
+      if (hip) this.hipTopY = hip.y;
+      this.maxElbowAngleInCycle = Math.max(this.maxElbowAngleInCycle, elbowAngle);
+      this.maxAlignmentDeviationInCycle = 0;
     }
 
     // Determine target candidate state
@@ -196,6 +215,7 @@ export class SidePushUpDetector {
           this.shoulderTopY = shoulder.y;
           if (hip) this.hipTopY = hip.y;
           this.maxElbowAngleInCycle = elbowAngle;
+          this.maxAlignmentDeviationInCycle = 0;
         } else if (prevState === PushUpState.DOWN && this.isCycleActive) {
           // User returned UP after going DOWN!
           this.topValid = elbowAngle >= config.sideTopElbowAngle;
@@ -219,7 +239,7 @@ export class SidePushUpDetector {
             minElbowAngleReached: this.minElbowAngleInCycle,
             maxElbowAngleReached: this.maxElbowAngleInCycle,
             bodyAlignmentAngle: this.lastAlignmentAngle,
-            alignmentDeviation: this.lastAlignmentDeviation,
+            alignmentDeviation: Math.max(this.lastAlignmentDeviation, this.maxAlignmentDeviationInCycle),
             shoulderTravel,
             hipTravel,
             torsoLength: this.torsoLength,
@@ -260,6 +280,7 @@ export class SidePushUpDetector {
           this.isCycleActive = false;
           this.bottomValid = false;
           this.topValid = false;
+          this.maxAlignmentDeviationInCycle = 0;
         }
 
         // Ready for next rep
@@ -276,13 +297,24 @@ export class SidePushUpDetector {
         this.shoulderBottomY = shoulder.y;
         if (hip) this.hipBottomY = hip.y;
 
-        // Validate Bottom Position immediately and continuously
-        const shoulderTravel = Math.max(0, this.shoulderBottomY - this.shoulderTopY);
+        // Validate Bottom Position immediately and latch when reached
         const hasSufficientFlexion = elbowAngle <= config.sideBottomElbowAngle;
         const hasGoodAlignment = this.lastAlignmentDeviation <= config.maxBodyAlignmentDev * 1.2;
         const hasVisibility = this.lastAvgVisibility >= config.minLandmarkVisibility;
 
-        this.bottomValid = hasSufficientFlexion && hasGoodAlignment && hasVisibility;
+        if (hasSufficientFlexion && hasGoodAlignment && hasVisibility) {
+          this.bottomValid = true;
+        }
+      }
+    }
+
+    // Continuous bottom validation while in DOWN state
+    if (this.state === PushUpState.DOWN) {
+      const hasSufficientFlexion = elbowAngle <= config.sideBottomElbowAngle;
+      const hasGoodAlignment = this.lastAlignmentDeviation <= config.maxBodyAlignmentDev * 1.2;
+      const hasVisibility = this.lastAvgVisibility >= config.minLandmarkVisibility;
+      if (hasSufficientFlexion && hasGoodAlignment && hasVisibility) {
+        this.bottomValid = true;
       }
     }
 
@@ -305,7 +337,7 @@ export class SidePushUpDetector {
       minElbowAngleReached: this.isCycleActive ? this.minElbowAngleInCycle : elbowAngle,
       maxElbowAngleReached: this.isCycleActive ? this.maxElbowAngleInCycle : elbowAngle,
       bodyAlignmentAngle: this.lastAlignmentAngle,
-      alignmentDeviation: this.lastAlignmentDeviation,
+      alignmentDeviation: Math.max(this.lastAlignmentDeviation, this.maxAlignmentDeviationInCycle),
       shoulderTravel: currentShoulderTravel,
       hipTravel: currentHipTravel,
       torsoLength: this.torsoLength,
@@ -318,7 +350,10 @@ export class SidePushUpDetector {
 
     let feedback = "Ready";
     if (this.state === PushUpState.DOWN) {
-      if (elbowAngle > config.sideBottomElbowAngle + 10) {
+      if (elbowAngle > config.sideTopElbowAngle - 15) {
+        feedback = "Come up";
+        feedbackKey = feedbackKey || "COME_UP";
+      } else if (elbowAngle > config.sideBottomElbowAngle + 10) {
         feedback = "Go lower";
         feedbackKey = feedbackKey || "GO_LOWER";
       } else {

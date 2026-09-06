@@ -2,3 +2,16 @@
 # https://opennext.js.org/cloudflare/caching#static-assets-caching
 /_next/static/*
   Cache-Control: public,max-age=31536000,immutable
+
+/models/*
+  Cache-Control: public,max-age=604800,stale-while-revalidate=86400
+
+/audio/*
+  Cache-Control: public,max-age=604800,stale-while-revalidate=86400
+
+/*
+  X-Content-Type-Options: nosniff
+  X-Frame-Options: DENY
+  Referrer-Policy: strict-origin-when-cross-origin
+  Permissions-Policy: camera=(self), microphone=(), geolocation=(), browsing-topics=()
+

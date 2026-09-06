@@ -237,8 +237,8 @@ export class PushUpFormValidator {
   ): number {
     // 1. Angle extension score (top)
     const topScore = Math.min(1, Math.max(0, (maxAngle - (targetTop - 25)) / 25));
-    // 2. Angle flexion score (bottom)
-    const bottomScore = Math.min(1, Math.max(0, ((targetBottom + 25) - minAngle) / 25));
+    // 2. Angle flexion score (bottom) - scales deeper flexion
+    const bottomScore = Math.min(1, Math.max(0, ((targetBottom + 15) - minAngle) / 25));
     // 3. Angle delta score
     const angleDelta = Math.max(0, maxAngle - minAngle);
     const expectedDelta = targetTop - targetBottom;
@@ -340,10 +340,11 @@ export class PushUpFormValidator {
     }
 
     // 8. Overall Weighted Form Score
+    const postureScore = view === "side" ? alignmentScore : asymmetryScore;
     const formScore = Math.max(0, Math.min(100, Math.round(
       romPercent * 0.30 +
       elbowScore * 0.25 +
-      alignmentScore * 0.15 +
+      postureScore * 0.15 +
       bodyMovementScore * 0.15 +
       visibilityScore * 0.10 +
       (durationScore * 0.05)

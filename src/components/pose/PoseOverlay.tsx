@@ -122,9 +122,11 @@ export const PoseOverlay = forwardRef<PoseOverlayRef, {}>((props, ref) => {
           ctx.fillStyle = '#ffffff';
           ctx.strokeStyle = '#000000';
           ctx.lineWidth = Math.max(3, fontSize * 0.2);
+          ctx.textAlign = 'center';
+          ctx.textBaseline = 'bottom';
           
-          ctx.strokeText(`${angle}°`, 15, 0);
-          ctx.fillText(`${angle}°`, 15, 0);
+          ctx.strokeText(`${angle}°`, 0, -10);
+          ctx.fillText(`${angle}°`, 0, -10);
           
           ctx.restore();
         }

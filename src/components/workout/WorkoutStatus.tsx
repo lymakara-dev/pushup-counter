@@ -68,6 +68,8 @@ export function WorkoutStatus({
 
   return (
     <div
+      role="status"
+      aria-live="polite"
       className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full border text-xs sm:text-sm font-semibold tracking-wide backdrop-blur-md shadow-lg transition-all select-none ${borderClass} ${textColor}`}
     >
       {icon}

@@ -146,6 +146,26 @@ export class FrontPushUpDetector {
       if (hipMid) {
         this.hipBottomMidY = Math.max(this.hipBottomMidY, hipMid.y);
       }
+
+      // Handle stalled repetition timeout
+      if (timestamp - this.cycleStartTime > config.maxRepDurationMs) {
+        this.isCycleActive = false;
+        this.bottomValid = false;
+        this.topValid = false;
+        this.state = PushUpState.READY;
+        this.pendingState = null;
+        this.stateConfirmCount = 0;
+      }
+    } else if (
+      this.state === PushUpState.READY &&
+      leftAngle >= config.frontTopElbowAngle - 8 &&
+      rightAngle >= config.frontTopElbowAngle - 8
+    ) {
+      // Keep baseline dynamically fresh while resting in plank position
+      this.shoulderTopMidY = shoulderMid.y;
+      if (hipMid) this.hipTopMidY = hipMid.y;
+      this.maxLeftElbowInCycle = Math.max(this.maxLeftElbowInCycle, leftAngle);
+      this.maxRightElbowInCycle = Math.max(this.maxRightElbowInCycle, rightAngle);
     }
 
     // Target state evaluation
@@ -281,7 +301,20 @@ export class FrontPushUpDetector {
         const hasSymmetry = this.lastArmAsymmetry <= config.maxArmAsymmetry * 1.5;
         const hasVisibility = this.lastAvgVisibility >= config.minLandmarkVisibility;
 
-        this.bottomValid = hasSufficientFlexion && hasSymmetry && hasVisibility;
+        if (hasSufficientFlexion && hasSymmetry && hasVisibility) {
+          this.bottomValid = true;
+        }
+      }
+    }
+
+    // Continuous bottom validation while in DOWN state
+    if (this.state === PushUpState.DOWN) {
+      const hasSufficientFlexion = leftAngle <= config.frontBottomElbowAngle || rightAngle <= config.frontBottomElbowAngle;
+      const hasSymmetry = this.lastArmAsymmetry <= config.maxArmAsymmetry * 1.5;
+      const hasVisibility = this.lastAvgVisibility >= config.minLandmarkVisibility;
+
+      if (hasSufficientFlexion && hasSymmetry && hasVisibility) {
+        this.bottomValid = true;
       }
     }
 
@@ -320,7 +353,10 @@ export class FrontPushUpDetector {
 
     let feedback = "Ready";
     if (this.state === PushUpState.DOWN) {
-      if (primaryElbowAngle > config.frontBottomElbowAngle + 10) {
+      if (primaryElbowAngle > config.frontTopElbowAngle - 15) {
+        feedback = "Come up";
+        feedbackKey = feedbackKey || "COME_UP";
+      } else if (primaryElbowAngle > config.frontBottomElbowAngle + 10) {
         feedback = "Go lower";
         feedbackKey = feedbackKey || "GO_LOWER";
       } else {

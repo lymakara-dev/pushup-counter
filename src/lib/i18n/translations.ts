@@ -61,6 +61,15 @@ export interface TranslationDictionary {
   WORKOUT: string;
   PAUSED: string;
   BODY_AREA: string;
+
+  // Camera & System Messages
+  cameraPermissionError: string;
+  cameraNotFoundError: string;
+  cameraGenericError: string;
+  tryAgain: string;
+  back: string;
+  switchCamera: string;
+  voiceUnavailableNotice: string;
   
   // Dynamic
   pausedText: (msg: string) => string;
@@ -125,6 +134,14 @@ export const en: TranslationDictionary = {
   WORKOUT: "Workout",
   PAUSED: "Paused",
   BODY_AREA: "Body Area",
+
+  cameraPermissionError: "Camera access is required. Allow camera access in your browser settings and try again.",
+  cameraNotFoundError: "No camera detected. Connect a webcam or use a device with a camera.",
+  cameraGenericError: "Camera error",
+  tryAgain: "Try Again",
+  back: "Back",
+  switchCamera: "Switch Camera",
+  voiceUnavailableNotice: "Khmer voice unavailable / ឧបករណ៍នេះមិនមានសំឡេងខ្មែរទេ",
   
   pausedText: (msg: string) => `PAUSED: ${msg}`
 };
@@ -188,6 +205,14 @@ export const km: TranslationDictionary = {
   WORKOUT: "កំពុងហាត់ប្រាណ",
   PAUSED: "បានផ្អាក",
   BODY_AREA: "ទីតាំងរាងកាយ",
+
+  cameraPermissionError: "ត្រូវការការអនុញ្ញាតកាមេរ៉ា។ សូមបើកការអនុញ្ញាតក្នុងកម្មវិធីរុករករបស់អ្នក ហើយព្យាយាមម្តងទៀត។",
+  cameraNotFoundError: "រកមិនឃើញកាមេរ៉ាទេ។ សូមភ្ជាប់កាមេរ៉ា ឬប្រើឧបករណ៍ដែលមានកាមេរ៉ា។",
+  cameraGenericError: "បញ្ហាកាមេរ៉ា",
+  tryAgain: "ព្យាយាមម្តងទៀត",
+  back: "ត្រឡប់ក្រោយ",
+  switchCamera: "ប្តូរកាមេរ៉ា",
+  voiceUnavailableNotice: "ឧបករណ៍នេះមិនមានសំឡេងខ្មែរទេ",
   
   pausedText: (msg: string) => `ផ្អាក៖ ${msg}`
 };

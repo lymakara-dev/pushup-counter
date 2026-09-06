@@ -107,6 +107,8 @@ export class VoiceGuide {
   private cooldownMs: number = 2000;
   private voiceUnavailable: boolean = false;
 
+  private keyLastSpokenTime = new Map<string, number>();
+
   constructor() {
     if (typeof window !== 'undefined') {
       const storedEnabled = localStorage.getItem('pushup_voice_enabled');
@@ -138,7 +140,11 @@ export class VoiceGuide {
     this.lastSpokenKey = "";
     this.lastSpokenText = "";
     this.lastSpokenTime = 0;
+    this.keyLastSpokenTime.clear();
     this.cancel(); // Stop currently playing audio when switching
+    if (lang === "km") {
+      khmerAudio.preloadBasic();
+    }
   }
 
   public isVoiceUnavailable(): boolean {
@@ -149,15 +155,22 @@ export class VoiceGuide {
     if (!this.enabled) return;
     const priority = VOICE_PRIORITIES[key] ?? VoicePriority.MEDIUM;
     const now = Date.now();
+
+    // Enforce cooldowns for non-critical messages
+    if (!force && priority < VoicePriority.CRITICAL) {
+      const lastKeyTime = this.keyLastSpokenTime.get(key) || 0;
+      if (now - lastKeyTime < this.cooldownMs) {
+        return;
+      }
+    }
+
+    this.keyLastSpokenTime.set(key, now);
+    this.lastSpokenTime = now;
+    this.lastSpokenKey = key;
     
     if (this.lang === "km") {
       const filename = KHMER_AUDIO_MAP[key];
       if (filename) {
-        if (!force && key === this.lastSpokenKey && (now - this.lastSpokenTime < this.cooldownMs)) {
-          return;
-        }
-        this.lastSpokenKey = key;
-        this.lastSpokenTime = now;
         khmerAudio.play(filename, priority, force);
       }
       return;
@@ -217,7 +230,9 @@ export class VoiceGuide {
         khmerAudio.play(filename, VoicePriority.CRITICAL, true);
         return;
       }
-      // Fall back to English SpeechSynthesis below if missing
+      // Fallback to English TTS if specific Khmer number file doesn't exist
+      this.speakEnglish(numberToEnglish(count), VoicePriority.CRITICAL, true);
+      return;
     }
 
     // English
@@ -239,9 +254,8 @@ export class VoiceGuide {
 
   // Called after user interaction (Start Camera)
   public preload() {
-    if (this.lang === "km") {
-       khmerAudio.preloadBasic();
-    }
+    // Unblock audio on iOS/Android gesture
+    khmerAudio.preloadBasic();
     // Trick to initialize SpeechSynthesis on iOS/Android
     this.speakEnglish("", VoicePriority.LOW, true);
   }

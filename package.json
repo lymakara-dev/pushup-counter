@@ -14,7 +14,7 @@
     "test": "vitest run"
   },
   "dependencies": {
-    "@mediapipe/tasks-vision": "^1.0.1",
+    "@mediapipe/tasks-vision": "1.0.1",
     "@opennextjs/cloudflare": "^1.19.9",
     "next": "16.2.11",
     "react": "^19.1.7",

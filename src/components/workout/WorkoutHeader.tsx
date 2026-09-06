@@ -63,31 +63,36 @@ export function WorkoutHeader({
         {/* Strict / Standard Mode */}
         <button
           onClick={onToggleValidationMode}
-          className="px-2.5 py-1 text-xs font-medium rounded-full bg-zinc-900/80 text-zinc-300 border border-zinc-800 hover:border-zinc-700 hover:text-white transition-colors"
+          className="px-3 py-1.5 min-h-[44px] text-xs font-medium rounded-full bg-zinc-900/80 text-zinc-300 border border-zinc-800 hover:border-zinc-700 hover:text-white transition-colors cursor-pointer flex items-center justify-center"
           title="Toggle workout validation mode"
+          aria-label={`Validation mode: ${validationMode === "strict" ? strictLabel : standardLabel}`}
         >
           {validationMode === "strict" ? `⚡ ${strictLabel}` : `🛡️ ${standardLabel}`}
         </button>
 
         {/* Language Switch */}
-        <div className="flex bg-zinc-900/80 rounded-full p-0.5 border border-zinc-800">
+        <div className="flex bg-zinc-900/80 rounded-full p-0.5 border border-zinc-800" role="group" aria-label="Language selection">
           <button
             onClick={() => onLanguageChange('en')}
-            className={`px-2.5 py-0.5 text-xs font-semibold rounded-full transition-colors ${
+            className={`px-3 py-1 min-w-[44px] min-h-[44px] text-xs font-semibold rounded-full transition-colors flex items-center justify-center cursor-pointer ${
               lang === 'en'
                 ? 'bg-zinc-200 text-black shadow-sm'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
+            aria-pressed={lang === 'en'}
+            aria-label="English"
           >
             EN
           </button>
           <button
             onClick={() => onLanguageChange('km')}
-            className={`px-2.5 py-0.5 text-xs font-semibold rounded-full transition-colors ${
+            className={`px-3 py-1 min-w-[44px] min-h-[44px] text-xs font-semibold rounded-full transition-colors flex items-center justify-center cursor-pointer ${
               lang === 'km'
                 ? 'bg-zinc-200 text-black shadow-sm'
                 : 'text-zinc-400 hover:text-zinc-200'
             }`}
+            aria-pressed={lang === 'km'}
+            aria-label="Khmer"
           >
             ខ្មែរ
           </button>
@@ -96,15 +101,16 @@ export function WorkoutHeader({
         {/* Voice Toggle */}
         <button
           onClick={onToggleVoice}
-          className={`w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-full border transition-colors ${
+          className={`w-11 h-11 min-w-[44px] min-h-[44px] flex items-center justify-center rounded-full border transition-colors cursor-pointer ${
             voiceEnabled
               ? 'bg-zinc-900/80 border-zinc-800 text-zinc-200 hover:text-white hover:border-zinc-700'
               : 'bg-zinc-900/40 border-zinc-800/60 text-zinc-600 hover:text-zinc-400'
           }`}
           aria-label={voiceEnabled ? disableVoiceLabel : enableVoiceLabel}
           title={voiceEnabled ? disableVoiceLabel : enableVoiceLabel}
+          aria-pressed={voiceEnabled}
         >
-          <span className="text-sm sm:text-base leading-none">
+          <span className="text-base leading-none">
             {voiceEnabled ? "🔊" : "🔇"}
           </span>
         </button>

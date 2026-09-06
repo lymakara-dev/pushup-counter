@@ -12,12 +12,18 @@ export async function getPoseLandmarker(): Promise<PoseLandmarker> {
     return initPromise;
   }
   
-  initPromise = new Promise(async (resolve, reject) => {
+  initPromise = (async () => {
+    let vision;
     try {
-      const vision = await FilesetResolver.forVisionTasks(
+      vision = await FilesetResolver.forVisionTasks(
         'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm'
       );
-      
+    } catch (visionErr) {
+      initPromise = null;
+      throw visionErr;
+    }
+
+    try {
       const landmarker = await PoseLandmarker.createFromOptions(vision, {
         baseOptions: {
           modelAssetPath: '/models/pose_landmarker.task',
@@ -31,13 +37,10 @@ export async function getPoseLandmarker(): Promise<PoseLandmarker> {
       });
       
       poseLandmarkerInstance = landmarker;
-      resolve(landmarker);
+      return landmarker;
     } catch (error) {
       console.warn("Failed to initialize with GPU delegate. Falling back to CPU...", error);
       try {
-        const vision = await FilesetResolver.forVisionTasks(
-          'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@1.0.1/wasm'
-        );
         const landmarker = await PoseLandmarker.createFromOptions(vision, {
           baseOptions: {
             modelAssetPath: '/models/pose_landmarker.task',
@@ -50,12 +53,13 @@ export async function getPoseLandmarker(): Promise<PoseLandmarker> {
           minTrackingConfidence: 0.5,
         });
         poseLandmarkerInstance = landmarker;
-        resolve(landmarker);
+        return landmarker;
       } catch (fallbackError) {
-        reject(fallbackError);
+        initPromise = null;
+        throw fallbackError;
       }
     }
-  });
-  
+  })();
+
   return initPromise;
 }
