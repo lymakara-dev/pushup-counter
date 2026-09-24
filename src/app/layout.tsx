@@ -20,7 +20,13 @@ export const viewport: Viewport = {
 	themeColor: "#09090b",
 };
 
+const siteUrl =
+	process.env.NEXT_PUBLIC_SITE_URL ||
+	process.env.SITE_URL ||
+	"https://pushup-counter.pages.dev";
+
 export const metadata: Metadata = {
+	metadataBase: new URL(siteUrl),
 	title: "Push-Up Counter",
 	description: "Count your push-ups using real-time body tracking.",
 	icons: {
